@@ -14,7 +14,252 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_chat_history: {
+        Row: {
+          content: string
+          context_type: string | null
+          created_at: string | null
+          id: string
+          role: string | null
+          session_date: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          context_type?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          session_date?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          context_type?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          session_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_checkins: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          id: string
+          mood: string | null
+          notes: string | null
+          streak: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          mood?: string | null
+          notes?: string | null
+          streak?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          mood?: string | null
+          notes?: string | null
+          streak?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      job_applications: {
+        Row: {
+          applied_date: string | null
+          company: string
+          created_at: string | null
+          follow_up_date: string | null
+          id: string
+          notes: string | null
+          role: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          applied_date?: string | null
+          company: string
+          created_at?: string | null
+          follow_up_date?: string | null
+          id?: string
+          notes?: string | null
+          role: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          applied_date?: string | null
+          company?: string
+          created_at?: string | null
+          follow_up_date?: string | null
+          id?: string
+          notes?: string | null
+          role?: string
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      network_log: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          id: string
+          name: string
+          next_action: string | null
+          note: string | null
+          platform: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          name: string
+          next_action?: string | null
+          note?: string | null
+          platform?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          name?: string
+          next_action?: string | null
+          note?: string | null
+          platform?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      revision_items: {
+        Row: {
+          added_date: string | null
+          created_at: string | null
+          id: string
+          next_rev: string | null
+          rev_count: number | null
+          rev_dates: string[] | null
+          text: string
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          added_date?: string | null
+          created_at?: string | null
+          id?: string
+          next_rev?: string | null
+          rev_count?: number | null
+          rev_dates?: string[] | null
+          text: string
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          added_date?: string | null
+          created_at?: string | null
+          id?: string
+          next_rev?: string | null
+          rev_count?: number | null
+          rev_dates?: string[] | null
+          text?: string
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      study_hours: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          hours: number
+          id: string
+          topic: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          hours: number
+          id?: string
+          topic: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          hours?: number
+          id?: string
+          topic?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          done: boolean | null
+          id: string
+          priority: string | null
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          done?: boolean | null
+          id?: string
+          priority?: string | null
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          done?: boolean | null
+          id?: string
+          priority?: string | null
+          text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_progress: {
+        Row: {
+          created_at: string | null
+          id: string
+          studied_subtopics: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          studied_subtopics?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          studied_subtopics?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

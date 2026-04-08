@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { NORMAL_SCHEDULE, INTERVIEW_SCHEDULE, STUDY_TOPICS, STUDY_TARGETS, TOPIC_COLORS, SPACED_REP_INTERVALS } from '@/lib/constants';
+import { NORMAL_SCHEDULE, INTERVIEW_SCHEDULE, STUDY_TOPICS, STUDY_TARGETS, TOPIC_COLORS, SPACED_REP_INTERVALS, SCHEDULE_SLOT_COLORS } from '@/lib/constants';
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());
@@ -17,18 +17,12 @@ function LiveClock() {
   return <span className="font-mono text-sm text-muted-foreground">{now.toLocaleTimeString()} • {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>;
 }
 
-function getCurrentTimeBlock(schedule: typeof NORMAL_SCHEDULE) {
-  const now = new Date();
-  const h = now.getHours();
-  if (h < 7) return 0;
-  if (h < 9) return 1;
-  if (h < 10) return 2;
-  if (h < 14) return 3;
-  if (h < 15) return 4;
-  if (h < 18) return 5;
-  if (h < 21) return 6;
-  if (h < 22) return 7;
-  return 8;
+function getCurrentSlotIndex(schedule: typeof NORMAL_SCHEDULE) {
+  const h = new Date().getHours();
+  for (let i = schedule.length - 1; i >= 0; i--) {
+    if (schedule[i].hours.includes(h)) return i;
+  }
+  return 0;
 }
 
 export default function TodayPage() {
@@ -41,7 +35,6 @@ export default function TodayPage() {
   const [interviewMode, setInterviewMode] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Form state
   const [newTask, setNewTask] = useState('');
   const [newPriority, setNewPriority] = useState('med');
   const [studyTopic, setStudyTopic] = useState('ML');
@@ -138,9 +131,8 @@ export default function TodayPage() {
   });
 
   const schedule = interviewMode ? INTERVIEW_SCHEDULE : NORMAL_SCHEDULE;
-  const currentBlock = getCurrentTimeBlock(NORMAL_SCHEDULE);
+  const currentSlot = getCurrentSlotIndex(schedule);
 
-  // Study progress per topic
   const topicHours: Record<string, number> = {};
   studyHours.forEach(h => { topicHours[h.topic] = (topicHours[h.topic] || 0) + Number(h.hours); });
 
@@ -157,13 +149,11 @@ export default function TodayPage() {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      {/* Greeting */}
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Good morning, Shyam 👋</h1>
         <LiveClock />
       </div>
 
-      {/* Interview mode banner */}
       {interviewMode && (
         <div className="bg-info/10 border border-info/30 rounded-lg p-3 text-info text-sm font-medium">
           📞 Interview Mode Active — Schedule adjusted for interview day
@@ -212,13 +202,26 @@ export default function TodayPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-1">
-            {schedule.map((item, i) => (
-              <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${!interviewMode && i === currentBlock ? 'bg-primary/10 border border-primary/30' : ''}`}>
-                {!interviewMode && i === currentBlock && <Badge className="bg-primary text-primary-foreground text-[10px]">▶ NOW</Badge>}
-                <span className="text-muted-foreground w-32 shrink-0 font-mono text-xs">{item.time}</span>
-                <span className="text-foreground">{item.label}</span>
-              </div>
-            ))}
+            {schedule.map((item, i) => {
+              const isActive = i === currentSlot;
+              const slotColor = SCHEDULE_SLOT_COLORS[item.label] || '';
+              return (
+                <div
+                  key={i}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm border transition-all ${slotColor} ${
+                    isActive
+                      ? 'ring-2 ring-primary shadow-[0_0_12px_hsl(var(--primary)/0.4)]'
+                      : 'border-transparent'
+                  }`}
+                >
+                  {isActive && (
+                    <Badge className="bg-primary text-primary-foreground text-[10px] animate-pulse shrink-0">NOW</Badge>
+                  )}
+                  <span className="text-muted-foreground w-32 shrink-0 font-mono text-xs">{item.time}</span>
+                  <span className="text-foreground">{item.label}</span>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 

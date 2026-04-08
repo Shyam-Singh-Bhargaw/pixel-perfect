@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      coding_practice: {
+        Row: {
+          created_at: string | null
+          date_solved: string | null
+          difficulty: string | null
+          id: string
+          note: string | null
+          platform: string
+          title: string
+          topic: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date_solved?: string | null
+          difficulty?: string | null
+          id?: string
+          note?: string | null
+          platform: string
+          title: string
+          topic?: string | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date_solved?: string | null
+          difficulty?: string | null
+          id?: string
+          note?: string | null
+          platform?: string
+          title?: string
+          topic?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_checkins: {
         Row: {
           created_at: string | null
@@ -112,6 +151,7 @@ export type Database = {
       }
       network_log: {
         Row: {
+          contacted: boolean | null
           created_at: string | null
           date: string | null
           id: string
@@ -122,6 +162,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          contacted?: boolean | null
           created_at?: string | null
           date?: string | null
           id?: string
@@ -132,6 +173,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          contacted?: boolean | null
           created_at?: string | null
           date?: string | null
           id?: string

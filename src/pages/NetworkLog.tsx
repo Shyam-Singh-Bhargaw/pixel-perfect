@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
-const PLATFORMS = ['LinkedIn', 'Twitter', 'Event', 'Cold Email', 'Other'];
+const PLATFORMS = ['LinkedIn', 'Twitter/X', 'Instagram', 'Offline/In-person', 'Email', 'Other'];
 
 export default function NetworkLogPage() {
   const { user } = useAuth();
@@ -20,22 +21,43 @@ export default function NetworkLogPage() {
   const [note, setNote] = useState('');
   const [nextAction, setNextAction] = useState('');
 
-  const fetch = useCallback(async () => {
+  const fetchContacts = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase.from('network_log').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('network_log')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (error) { console.error(error); }
     setContacts(data || []);
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
   const addContact = async () => {
     if (!name.trim() || !user) return;
-    await supabase.from('network_log').insert({ user_id: user.id, name, platform, note: note || null, next_action: nextAction || null });
+    const { error } = await supabase.from('network_log').insert({
+      user_id: user.id,
+      name: name.trim(),
+      platform,
+      note: note.trim() || null,
+      next_action: nextAction.trim() || null,
+    });
+    if (error) { toast.error('Failed to add contact'); console.error(error); return; }
     toast.success('Contact added!');
     setName(''); setNote(''); setNextAction('');
-    fetch();
+    fetchContacts();
+  };
+
+  const toggleContacted = async (contact: any) => {
+    const { error } = await supabase
+      .from('network_log')
+      .update({ contacted: !contact.contacted })
+      .eq('id', contact.id);
+    if (error) { toast.error('Failed to update'); return; }
+    fetchContacts();
   };
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 w-full" /></div>;
@@ -50,33 +72,7 @@ export default function NetworkLogPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead><TableHead>Platform</TableHead><TableHead>Note</TableHead>
-                <TableHead>Next Action</TableHead><TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contacts.map(c => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium text-sm">{c.name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{c.platform}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-40 truncate">{c.note || '—'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{c.next_action || '—'}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{c.date}</TableCell>
-                </TableRow>
-              ))}
-              {contacts.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">No contacts yet</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
+      {/* Add Contact Form */}
       <Card className="border-border">
         <CardHeader className="pb-3"><CardTitle className="text-base font-heading">Add Contact</CardTitle></CardHeader>
         <CardContent>
@@ -87,9 +83,45 @@ export default function NetworkLogPage() {
               <SelectContent>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
             </Select>
             <Input placeholder="Note/Context" value={note} onChange={e => setNote(e.target.value)} className="bg-secondary border-border" />
-            <Input placeholder="Next Action" value={nextAction} onChange={e => setNextAction(e.target.value)} className="bg-secondary border-border" />
+            <Input placeholder="Next Action (e.g. 'Send follow-up in 3 days')" value={nextAction} onChange={e => setNextAction(e.target.value)} className="bg-secondary border-border" />
           </div>
           <Button onClick={addContact} className="mt-3">Add Contact</Button>
+        </CardContent>
+      </Card>
+
+      {/* Contacts Table */}
+      <Card className="border-border">
+        <CardHeader className="pb-3"><CardTitle className="text-base font-heading">Contacts ({contacts.length})</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">✓</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Platform</TableHead>
+                <TableHead>Note</TableHead>
+                <TableHead>Next Action</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contacts.map(c => (
+                <TableRow key={c.id} className={c.contacted ? 'opacity-60' : ''}>
+                  <TableCell>
+                    <Checkbox checked={c.contacted || false} onCheckedChange={() => toggleContacted(c)} />
+                  </TableCell>
+                  <TableCell className="font-medium text-sm">{c.name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{c.platform}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-40 truncate">{c.note || '—'}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{c.next_action || '—'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.date}</TableCell>
+                </TableRow>
+              ))}
+              {contacts.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No contacts yet</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

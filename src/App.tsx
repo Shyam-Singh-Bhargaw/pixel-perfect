@@ -14,6 +14,7 @@ import NetworkLogPage from "@/pages/NetworkLog";
 import StudyPlanPage from "@/pages/StudyPlan";
 import ProgressPage from "@/pages/Progress";
 import CalendarView from "@/pages/CalendarView";
+import CodingPracticePage from "@/pages/CodingPractice";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();

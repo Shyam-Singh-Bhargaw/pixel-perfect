@@ -1,4 +1,4 @@
-import { CalendarDays, CheckSquare, Brain, Briefcase, Users, BarChart3, BookOpen, Calendar, Bot } from 'lucide-react';
+import { CalendarDays, CheckSquare, Brain, Briefcase, Users, BarChart3, BookOpen, Calendar, Bot, Code } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useStreak } from '@/hooks/useStreak';
@@ -14,6 +14,7 @@ const items = [
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Revision Queue', url: '/revision', icon: Brain },
   { title: 'Study Plan', url: '/study-plan', icon: BookOpen },
+  { title: 'Coding Practice', url: '/coding', icon: Code },
   { title: 'Job Tracker', url: '/jobs', icon: Briefcase },
   { title: 'Network Log', url: '/network', icon: Users },
   { title: 'AI Coach', url: '/ai-coach', icon: Bot },

@@ -191,8 +191,12 @@ export type Database = {
           created_at: string | null
           id: string
           next_rev: string | null
+          original_date: string | null
           rev_count: number | null
           rev_dates: string[] | null
+          source_note: string | null
+          source_type: string | null
+          source_url: string | null
           text: string
           topic: string | null
           user_id: string
@@ -202,8 +206,12 @@ export type Database = {
           created_at?: string | null
           id?: string
           next_rev?: string | null
+          original_date?: string | null
           rev_count?: number | null
           rev_dates?: string[] | null
+          source_note?: string | null
+          source_type?: string | null
+          source_url?: string | null
           text: string
           topic?: string | null
           user_id: string
@@ -213,8 +221,12 @@ export type Database = {
           created_at?: string | null
           id?: string
           next_rev?: string | null
+          original_date?: string | null
           rev_count?: number | null
           rev_dates?: string[] | null
+          source_note?: string | null
+          source_type?: string | null
+          source_url?: string | null
           text?: string
           topic?: string | null
           user_id?: string

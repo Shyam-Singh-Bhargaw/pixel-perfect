@@ -76,7 +76,9 @@ export default function TodayPage() {
     await supabase.from('tasks').update({ done: newDone }).eq('id', task.id);
     if (newDone) {
       await supabase.from('revision_items').insert({
-        user_id: user!.id, text: task.text, topic: 'General', next_rev: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        user_id: user!.id, text: task.text, topic: 'General',
+        next_rev: new Date(Date.now() + SPACED_REP_INTERVALS[0] * 86400000).toISOString().split('T')[0],
+        source_type: 'task', original_date: today,
       });
     }
     fetchData();
@@ -269,7 +271,14 @@ export default function TodayPage() {
             {revItems.map(item => (
               <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-md bg-secondary/50">
                 <div className={`w-2 h-2 rounded-full ${TOPIC_COLORS[item.topic] || 'bg-muted-foreground'}`} />
-                <span className="flex-1 text-sm text-foreground">{item.text}</span>
+                <div className="flex-1 min-w-0">
+                  {item.source_url ? (
+                    <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline font-medium truncate block">{item.text}</a>
+                  ) : (
+                    <span className="text-sm text-foreground truncate block">{item.text}</span>
+                  )}
+                  {item.source_note && <p className="text-xs text-muted-foreground italic truncate">💬 {item.source_note}</p>}
+                </div>
                 <Badge variant="outline" className="text-[10px]">{item.topic}</Badge>
                 <Button size="sm" variant="outline" onClick={() => markRevisionDone(item)} className="text-xs">✓ Done</Button>
               </div>

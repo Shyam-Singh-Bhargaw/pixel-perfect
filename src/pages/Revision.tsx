@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { SPACED_REP_INTERVALS } from '@/lib/constants';
 import { streamChat, ChatMessage } from '@/lib/ai';
+import { ExternalAnchor } from '@/components/ExternalAnchor';
 
 function getReviewDay(revCount: number): string {
   if (revCount === 0) return 'Day 1';
@@ -41,7 +42,9 @@ export default function RevisionPage() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   const markRevised = async (item: any) => {
     const newCount = (item.rev_count || 0) + 1;
@@ -53,23 +56,29 @@ export default function RevisionPage() {
   };
 
   const getAiTips = async () => {
-    const dueItems = items.filter(i => i.next_rev <= today);
-    if (dueItems.length === 0) { toast.info('No items due today'); return; }
+    const dueItems = items.filter(item => item.next_rev <= today);
+    if (dueItems.length === 0) {
+      toast.info('No items due today');
+      return;
+    }
     setAiLoading(true);
     setAiTips('');
-    const prompt = `Today's revision topics: ${dueItems.map(i => `${i.text} (${i.topic})`).join(', ')}. Give: 1) 2-sentence explanation of each, 2) Most likely interview question, 3) Memory tip.`;
+    const prompt = `Today's revision topics: ${dueItems.map(item => `${item.text} (${item.topic})`).join(', ')}. Give: 1) 2-sentence explanation of each, 2) Most likely interview question, 3) Memory tip.`;
     const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
     await streamChat({
       messages,
-      onDelta: (t) => setAiTips(prev => prev + t),
+      onDelta: text => setAiTips(prev => prev + text),
       onDone: () => setAiLoading(false),
-      onError: (e) => { toast.error(e.message); setAiLoading(false); },
+      onError: error => {
+        toast.error(error.message);
+        setAiLoading(false);
+      },
     });
   };
 
-  const overdue = items.filter(i => i.next_rev < today);
-  const dueToday = items.filter(i => i.next_rev === today);
-  const upcoming = items.filter(i => i.next_rev > today);
+  const overdue = items.filter(item => item.next_rev < today);
+  const dueToday = items.filter(item => item.next_rev === today);
+  const upcoming = items.filter(item => item.next_rev > today);
 
   const renderItem = (item: any, tint?: string) => (
     <TableRow key={item.id} className={tint || ''}>
@@ -82,21 +91,21 @@ export default function RevisionPage() {
       <TableCell>
         <div className="space-y-1">
           {item.source_url ? (
-            <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline font-medium">
+            <ExternalAnchor href={item.source_url} className="text-sm font-medium text-primary hover:underline">
               {item.text}
-            </a>
+            </ExternalAnchor>
           ) : (
             <span className="text-sm text-foreground">{item.text}</span>
           )}
           {item.source_note && (
-            <p className="text-xs text-muted-foreground italic">💬 {item.source_note}</p>
+            <p className="text-xs italic text-muted-foreground">💬 {item.source_note}</p>
           )}
         </div>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">{item.original_date || item.added_date}</TableCell>
       <TableCell>
         <Badge variant="outline" className="text-xs font-mono">{getReviewDay(item.rev_count || 0)}</Badge>
-        <span className="text-xs text-muted-foreground ml-1">({item.rev_count || 0}x)</span>
+        <span className="ml-1 text-xs text-muted-foreground">({item.rev_count || 0}x)</span>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">{item.next_rev}</TableCell>
       <TableCell>
@@ -120,7 +129,7 @@ export default function RevisionPage() {
       <TableBody>
         {data.map(item => renderItem(item, tint))}
         {data.length === 0 && (
-          <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No items</TableCell></TableRow>
+          <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No items</TableCell></TableRow>
         )}
       </TableBody>
     </Table>
@@ -129,15 +138,14 @@ export default function RevisionPage() {
   if (loading) return <div className="space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 w-full" /></div>;
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Revision Queue</h1>
-        <p className="text-sm text-muted-foreground mt-1">Your smart logbook — tasks, coding problems, and concepts with spaced repetition.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Your smart logbook — tasks, coding problems, and concepts with spaced repetition.</p>
       </div>
 
-      {/* AI Revision Coach */}
       <Card className="border-border">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base font-heading">🧠 AI Revision Coach</CardTitle>
           <Button onClick={getAiTips} disabled={aiLoading} size="sm">
             {aiLoading ? 'Thinking...' : "Get today's revision tips"}
@@ -145,7 +153,7 @@ export default function RevisionPage() {
         </CardHeader>
         {aiTips && (
           <CardContent>
-            <div className="bg-secondary rounded-lg p-4 text-sm text-foreground whitespace-pre-wrap">{aiTips}</div>
+            <div className="rounded-lg bg-secondary p-4 text-sm text-foreground whitespace-pre-wrap">{aiTips}</div>
           </CardContent>
         )}
       </Card>

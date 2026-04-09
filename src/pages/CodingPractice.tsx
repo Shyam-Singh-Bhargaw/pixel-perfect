@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { SPACED_REP_INTERVALS } from '@/lib/constants';
+import { ExternalAnchor } from '@/components/ExternalAnchor';
 
 const PLATFORMS_MAP: Record<string, string> = {
   'leetcode.com': 'LeetCode',
@@ -21,23 +22,23 @@ const PLATFORMS_MAP: Record<string, string> = {
 };
 
 const TOPIC_KEYWORDS: Record<string, string[]> = {
-  'Arrays': ['array', 'two-sum', 'subarray', 'matrix', 'rotate'],
-  'Strings': ['string', 'palindrome', 'anagram', 'substring'],
+  Arrays: ['array', 'two-sum', 'subarray', 'matrix', 'rotate'],
+  Strings: ['string', 'palindrome', 'anagram', 'substring'],
   'Dynamic Programming': ['dynamic-programming', 'dp', 'knapsack', 'fibonacci', 'longest-common'],
-  'Trees': ['tree', 'binary-tree', 'bst', 'trie', 'inorder', 'preorder'],
-  'Graphs': ['graph', 'dfs', 'bfs', 'dijkstra', 'topological', 'shortest-path'],
+  Trees: ['tree', 'binary-tree', 'bst', 'trie', 'inorder', 'preorder'],
+  Graphs: ['graph', 'dfs', 'bfs', 'dijkstra', 'topological', 'shortest-path'],
   'Linked List': ['linked-list', 'linkedlist'],
-  'Stack': ['stack', 'monotone-stack'],
-  'Queue': ['queue', 'deque'],
+  Stack: ['stack', 'monotone-stack'],
+  Queue: ['queue', 'deque'],
   'Hash Table': ['hash', 'hashmap', 'hash-table'],
   'Binary Search': ['binary-search'],
-  'Sorting': ['sort', 'merge-sort', 'quick-sort'],
+  Sorting: ['sort', 'merge-sort', 'quick-sort'],
   'Sliding Window': ['sliding-window'],
   'Two Pointers': ['two-pointer'],
-  'Backtracking': ['backtracking', 'permutation', 'combination'],
-  'Greedy': ['greedy'],
-  'Heap': ['heap', 'priority-queue'],
-  'Math': ['math', 'number'],
+  Backtracking: ['backtracking', 'permutation', 'combination'],
+  Greedy: ['greedy'],
+  Heap: ['heap', 'priority-queue'],
+  Math: ['math', 'number'],
 };
 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
@@ -53,26 +54,23 @@ function detectFromUrl(url: string) {
     const host = parsed.hostname.replace('www.', '');
     platform = PLATFORMS_MAP[host] || 'Other';
 
-    // Extract title from URL slug
     const pathParts = parsed.pathname.split('/').filter(Boolean);
-    const slug = pathParts.find(p => p !== 'problems' && p !== 'problem' && p !== 'challenges' && p.length > 2) || '';
-    title = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const slug = pathParts.find(part => part !== 'problems' && part !== 'problem' && part !== 'challenges' && part.length > 2) || '';
+    title = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 
-    // Detect difficulty from URL
     const urlLower = url.toLowerCase();
     if (urlLower.includes('easy')) difficulty = 'Easy';
     else if (urlLower.includes('hard')) difficulty = 'Hard';
 
-    // Detect topic from slug keywords
     const slugLower = slug.toLowerCase();
-    for (const [t, keywords] of Object.entries(TOPIC_KEYWORDS)) {
-      if (keywords.some(k => slugLower.includes(k))) {
-        topic = t;
+    for (const [detectedTopic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
+      if (keywords.some(keyword => slugLower.includes(keyword))) {
+        topic = detectedTopic;
         break;
       }
     }
   } catch {
-    // Invalid URL, ignore
+    // ignore invalid URL
   }
 
   return { platform, title, topic, difficulty };
@@ -102,12 +100,14 @@ export default function CodingPracticePage() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
 
-  const handleUrlChange = (val: string) => {
-    setUrl(val);
-    if (val.startsWith('http')) {
-      const detected = detectFromUrl(val);
+  const handleUrlChange = (value: string) => {
+    setUrl(value);
+    if (value.startsWith('http')) {
+      const detected = detectFromUrl(value);
       setTitle(detected.title);
       setPlatform(detected.platform);
       setTopic(detected.topic);
@@ -117,33 +117,50 @@ export default function CodingPracticePage() {
 
   const addEntry = async () => {
     if (!url.trim() || !title.trim() || !user) return;
-    const { error } = await supabase.from('coding_practice').insert({
-      user_id: user.id, url, title, platform, topic: topic || null,
-      difficulty, note: note || null,
-    });
-    if (error) { toast.error('Failed to save'); return; }
 
-    // Also add to revision queue for spaced repetition
+    const { error } = await supabase.from('coding_practice').insert({
+      user_id: user.id,
+      url,
+      title,
+      platform,
+      topic: topic || null,
+      difficulty,
+      note: note || null,
+    });
+
+    if (error) {
+      toast.error('Failed to save');
+      return;
+    }
+
     await supabase.from('revision_items').insert({
       user_id: user.id,
       text: `🔗 ${title} (${platform})`,
       topic: topic || 'DSA',
       next_rev: new Date(Date.now() + SPACED_REP_INTERVALS[0] * 86400000).toISOString().split('T')[0],
-      source_url: url, source_note: note || null, source_type: 'coding', original_date: new Date().toISOString().split('T')[0],
+      source_url: url,
+      source_note: note || null,
+      source_type: 'coding',
+      original_date: new Date().toISOString().split('T')[0],
     });
 
     toast.success('Problem saved & added to revision queue!');
-    setUrl(''); setTitle(''); setNote(''); setTopic('');
+    setUrl('');
+    setTitle('');
+    setNote('');
+    setTopic('');
     fetchEntries();
   };
 
-  const diffColor = (d: string) => {
-    if (d === 'Easy') return 'text-success border-success';
-    if (d === 'Hard') return 'text-destructive border-destructive';
+  const diffColor = (value: string) => {
+    if (value === 'Easy') return 'text-success border-success';
+    if (value === 'Hard') return 'text-destructive border-destructive';
     return 'text-warning border-warning';
   };
 
-  if (loading) return <div className="space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 w-full" /></div>;
+  if (loading) {
+    return <div className="space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 w-full" /></div>;
+  }
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -155,7 +172,6 @@ export default function CodingPracticePage() {
         </CardContent>
       </Card>
 
-      {/* Add Form */}
       <Card className="border-border">
         <CardHeader className="pb-3"><CardTitle className="text-base font-heading">Log a Problem</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -170,7 +186,7 @@ export default function CodingPracticePage() {
             <Select value={platform} onValueChange={setPlatform}>
               <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.values(PLATFORMS_MAP).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                {Object.values(PLATFORMS_MAP).map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -178,7 +194,7 @@ export default function CodingPracticePage() {
             <Select value={difficulty} onValueChange={setDifficulty}>
               <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {DIFFICULTIES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {DIFFICULTIES.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -187,7 +203,6 @@ export default function CodingPracticePage() {
         </CardContent>
       </Card>
 
-      {/* Problems Table */}
       <Card className="border-border">
         <CardHeader className="pb-3"><CardTitle className="text-base font-heading">Solved Problems ({entries.length})</CardTitle></CardHeader>
         <CardContent className="p-0">
@@ -203,22 +218,22 @@ export default function CodingPracticePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.map(e => (
-                <TableRow key={e.id}>
+              {entries.map(entry => (
+                <TableRow key={entry.id}>
                   <TableCell>
-                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline font-medium">
-                      {e.title}
-                    </a>
+                    <ExternalAnchor href={entry.url} className="text-sm font-medium text-primary hover:underline">
+                      {entry.title}
+                    </ExternalAnchor>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{e.platform}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs">{e.topic || '—'}</Badge></TableCell>
-                  <TableCell><Badge variant="outline" className={`text-xs ${diffColor(e.difficulty)}`}>{e.difficulty}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-40 truncate">{e.note || '—'}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{e.date_solved}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{entry.platform}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-xs">{entry.topic || '—'}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className={`text-xs ${diffColor(entry.difficulty)}`}>{entry.difficulty}</Badge></TableCell>
+                  <TableCell className="max-w-40 truncate text-sm text-muted-foreground">{entry.note || '—'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{entry.date_solved}</TableCell>
                 </TableRow>
               ))}
               {entries.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No problems logged yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No problems logged yet</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

@@ -15,6 +15,7 @@ import StudyPlanPage from "@/pages/StudyPlan";
 import ProgressPage from "@/pages/Progress";
 import CalendarView from "@/pages/CalendarView";
 import CodingPracticePage from "@/pages/CodingPractice";
+import StudyNotesPage from "@/pages/StudyNotes";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/revision" element={<ProtectedRoute><RevisionPage /></ProtectedRoute>} />
       <Route path="/study-plan" element={<ProtectedRoute><StudyPlanPage /></ProtectedRoute>} />
       <Route path="/coding" element={<ProtectedRoute><CodingPracticePage /></ProtectedRoute>} />
+      <Route path="/notes" element={<ProtectedRoute><StudyNotesPage /></ProtectedRoute>} />
       <Route path="/jobs" element={<ProtectedRoute><JobTrackerPage /></ProtectedRoute>} />
       <Route path="/network" element={<ProtectedRoute><NetworkLogPage /></ProtectedRoute>} />
       <Route path="/ai-coach" element={<ProtectedRoute><AICoachPage /></ProtectedRoute>} />

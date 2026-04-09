@@ -20,6 +20,7 @@ function getReviewDay(revCount: number): string {
 function sourceIcon(type: string | null) {
   if (type === 'coding') return '💻';
   if (type === 'task') return '✅';
+  if (type === 'note') return '📖';
   return '📝';
 }
 

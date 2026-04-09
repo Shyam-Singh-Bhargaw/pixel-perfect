@@ -260,6 +260,42 @@ export type Database = {
         }
         Relationships: []
       }
+      study_notes: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string | null
+          date: string | null
+          id: string
+          source_title: string | null
+          source_url: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          source_title?: string | null
+          source_url?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          source_title?: string | null
+          source_url?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           created_at: string | null

@@ -8,5 +8,6 @@ AI Coach uses Lovable AI gateway (google/gemini-3-flash-preview).
 
 ## Memories
 - [Design tokens](mem://design/tokens) — Full dark theme palette, surface colors, semantic tokens
-- [Database schema](mem://features/schema) — 9 tables: tasks, revision_items, study_hours, daily_checkins, job_applications, network_log, ai_chat_history, user_progress, coding_practice
-- [App structure](mem://features/structure) — 9 views: Today, Calendar, Revision, Study Plan, Coding Practice, Job Tracker, Network Log, AI Coach, Progress
+- [Database schema](mem://features/schema) — 9 tables: tasks, revision_items, study_hours, daily_checkins, job_applications, network_log, ai_chat_history, user_progress, study_notes, coding_practice
+- [App structure](mem://features/structure) — 10 views: Today, Calendar, Revision, Study Plan, Coding Practice, Study Notes, Job Tracker, Network Log, AI Coach, Progress
+- [Revision system](mem://features/revision) — source_type: manual/task/coding/note. All links one-click target=_blank.

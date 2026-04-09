@@ -129,6 +129,7 @@ export default function CodingPracticePage() {
       text: `🔗 ${title} (${platform})`,
       topic: topic || 'DSA',
       next_rev: new Date(Date.now() + SPACED_REP_INTERVALS[0] * 86400000).toISOString().split('T')[0],
+      source_url: url, source_note: note || null, source_type: 'coding', original_date: new Date().toISOString().split('T')[0],
     });
 
     toast.success('Problem saved & added to revision queue!');

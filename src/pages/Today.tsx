@@ -76,7 +76,9 @@ export default function TodayPage() {
     await supabase.from('tasks').update({ done: newDone }).eq('id', task.id);
     if (newDone) {
       await supabase.from('revision_items').insert({
-        user_id: user!.id, text: task.text, topic: 'General', next_rev: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        user_id: user!.id, text: task.text, topic: 'General',
+        next_rev: new Date(Date.now() + SPACED_REP_INTERVALS[0] * 86400000).toISOString().split('T')[0],
+        source_type: 'task', original_date: today,
       });
     }
     fetchData();

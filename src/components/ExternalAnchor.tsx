@@ -6,20 +6,27 @@ interface ExternalAnchorProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchor
   href: string;
 }
 
+function normalizeHref(href: string) {
+  if (/^(https?:|mailto:|tel:)/i.test(href)) return href;
+  return `https://${href}`;
+}
+
 const ExternalAnchor = React.forwardRef<HTMLAnchorElement, ExternalAnchorProps>(
   ({ href, className, style, onClick, children, ...props }, ref) => {
+    const resolvedHref = normalizeHref(href);
+
     const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
       event.stopPropagation();
       onClick?.(event);
       if (event.defaultPrevented) return;
       event.preventDefault();
-      window.open(href, "_blank", "noopener,noreferrer");
+      window.open(resolvedHref, "_blank", "noopener,noreferrer");
     };
 
     return (
       <a
         ref={ref}
-        href={href}
+        href={resolvedHref}
         target="_blank"
         rel="noopener noreferrer"
         onMouseDown={(event) => event.stopPropagation()}

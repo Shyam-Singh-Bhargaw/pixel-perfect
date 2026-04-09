@@ -11,23 +11,101 @@ import { toast } from 'sonner';
 import { SPACED_REP_INTERVALS } from '@/lib/constants';
 import { streamChat, ChatMessage } from '@/lib/ai';
 import { ExternalAnchor } from '@/components/ExternalAnchor';
-...
+
+function getReviewDay(revCount: number): string {
+  if (revCount === 0) return 'Day 1';
+  const idx = Math.min(revCount, SPACED_REP_INTERVALS.length - 1);
+  return `Day ${SPACED_REP_INTERVALS[idx]}`;
+}
+
+function sourceIcon(type: string | null) {
+  if (type === 'coding') return '💻';
+  if (type === 'task') return '✅';
+  if (type === 'note') return '📖';
+  return '📝';
+}
+
+export default function RevisionPage() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [aiTips, setAiTips] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const fetchItems = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase.from('revision_items').select('*').eq('user_id', user.id).order('next_rev');
+    setItems(data || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  const markRevised = async (item: any) => {
+    const newCount = (item.rev_count || 0) + 1;
+    const idx = Math.min(newCount, SPACED_REP_INTERVALS.length - 1);
+    const nextDate = new Date(Date.now() + SPACED_REP_INTERVALS[idx] * 86400000).toISOString().split('T')[0];
+    await supabase.from('revision_items').update({ rev_count: newCount, next_rev: nextDate, rev_dates: [...(item.rev_dates || []), today] }).eq('id', item.id);
+    toast.success('Marked as revised!');
+    fetchItems();
+  };
+
+  const getAiTips = async () => {
+    const dueItems = items.filter(item => item.next_rev <= today);
+    if (dueItems.length === 0) {
+      toast.info('No items due today');
+      return;
+    }
+    setAiLoading(true);
+    setAiTips('');
+    const prompt = `Today's revision topics: ${dueItems.map(item => `${item.text} (${item.topic})`).join(', ')}. Give: 1) 2-sentence explanation of each, 2) Most likely interview question, 3) Memory tip.`;
+    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
+    await streamChat({
+      messages,
+      onDelta: text => setAiTips(prev => prev + text),
+      onDone: () => setAiLoading(false),
+      onError: error => {
+        toast.error(error.message);
+        setAiLoading(false);
+      },
+    });
+  };
+
+  const overdue = items.filter(item => item.next_rev < today);
+  const dueToday = items.filter(item => item.next_rev === today);
+  const upcoming = items.filter(item => item.next_rev > today);
+
+  const renderItem = (item: any, tint?: string) => (
+    <TableRow key={item.id} className={tint || ''}>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <span title={item.source_type || 'manual'}>{sourceIcon(item.source_type)}</span>
+          <Badge variant="outline" className="text-xs">{item.topic}</Badge>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="space-y-1">
           {item.source_url ? (
-            <ExternalAnchor href={item.source_url} className="text-sm text-primary hover:underline font-medium">
+            <ExternalAnchor href={item.source_url} className="text-sm font-medium text-primary hover:underline">
               {item.text}
             </ExternalAnchor>
           ) : (
             <span className="text-sm text-foreground">{item.text}</span>
           )}
           {item.source_note && (
-            <p className="text-xs text-muted-foreground italic">💬 {item.source_note}</p>
+            <p className="text-xs italic text-muted-foreground">💬 {item.source_note}</p>
           )}
         </div>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">{item.original_date || item.added_date}</TableCell>
       <TableCell>
         <Badge variant="outline" className="text-xs font-mono">{getReviewDay(item.rev_count || 0)}</Badge>
-        <span className="text-xs text-muted-foreground ml-1">({item.rev_count || 0}x)</span>
+        <span className="ml-1 text-xs text-muted-foreground">({item.rev_count || 0}x)</span>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">{item.next_rev}</TableCell>
       <TableCell>
@@ -51,7 +129,7 @@ import { ExternalAnchor } from '@/components/ExternalAnchor';
       <TableBody>
         {data.map(item => renderItem(item, tint))}
         {data.length === 0 && (
-          <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No items</TableCell></TableRow>
+          <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No items</TableCell></TableRow>
         )}
       </TableBody>
     </Table>
@@ -60,15 +138,14 @@ import { ExternalAnchor } from '@/components/ExternalAnchor';
   if (loading) return <div className="space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 w-full" /></div>;
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Revision Queue</h1>
-        <p className="text-sm text-muted-foreground mt-1">Your smart logbook — tasks, coding problems, and concepts with spaced repetition.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Your smart logbook — tasks, coding problems, and concepts with spaced repetition.</p>
       </div>
 
-      {/* AI Revision Coach */}
       <Card className="border-border">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base font-heading">🧠 AI Revision Coach</CardTitle>
           <Button onClick={getAiTips} disabled={aiLoading} size="sm">
             {aiLoading ? 'Thinking...' : "Get today's revision tips"}
@@ -76,7 +153,7 @@ import { ExternalAnchor } from '@/components/ExternalAnchor';
         </CardHeader>
         {aiTips && (
           <CardContent>
-            <div className="bg-secondary rounded-lg p-4 text-sm text-foreground whitespace-pre-wrap">{aiTips}</div>
+            <div className="rounded-lg bg-secondary p-4 text-sm text-foreground whitespace-pre-wrap">{aiTips}</div>
           </CardContent>
         )}
       </Card>

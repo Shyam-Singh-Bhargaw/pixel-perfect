@@ -16,6 +16,7 @@ import ProgressPage from "@/pages/Progress";
 import CalendarView from "@/pages/CalendarView";
 import CodingPracticePage from "@/pages/CodingPractice";
 import StudyNotesPage from "@/pages/StudyNotes";
+import NoteViewerPage from "@/pages/NoteViewer";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/network" element={<ProtectedRoute><NetworkLogPage /></ProtectedRoute>} />
       <Route path="/ai-coach" element={<ProtectedRoute><AICoachPage /></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
+      <Route path="/note/:id" element={<ProtectedRoute><NoteViewerPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

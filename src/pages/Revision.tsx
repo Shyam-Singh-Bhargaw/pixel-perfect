@@ -28,6 +28,7 @@ function sourceIcon(type: string | null) {
 
 export default function RevisionPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiTips, setAiTips] = useState('');
@@ -91,12 +92,16 @@ export default function RevisionPage() {
       </TableCell>
       <TableCell>
         <div className="space-y-1">
-          {item.source_url ? (
-            <ExternalAnchor href={item.source_url} className="text-sm font-medium text-primary hover:underline">
-              {item.text}
+          <button
+            onClick={() => navigate(`/note/${item.id}`)}
+            className="text-sm font-medium text-primary hover:underline text-left cursor-pointer bg-transparent border-none p-0"
+          >
+            {item.text}
+          </button>
+          {item.source_url && (
+            <ExternalAnchor href={item.source_url} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              🔗 Open source
             </ExternalAnchor>
-          ) : (
-            <span className="text-sm text-foreground">{item.text}</span>
           )}
           {item.source_note && (
             <p className="text-xs italic text-muted-foreground">💬 {item.source_note}</p>

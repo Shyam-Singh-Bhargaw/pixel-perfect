@@ -16,6 +16,7 @@ import ProgressPage from "@/pages/Progress";
 import CalendarView from "@/pages/CalendarView";
 import CodingPracticePage from "@/pages/CodingPractice";
 import StudyNotesPage from "@/pages/StudyNotes";
+import NoteViewerPage from "@/pages/NoteViewer";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();

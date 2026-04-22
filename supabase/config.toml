@@ -1,1 +1,4 @@
 project_id = "qwqouxprxanokontxaxv"
+
+[functions.extract-job]
+verify_jwt = false

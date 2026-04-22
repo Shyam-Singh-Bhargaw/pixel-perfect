@@ -354,8 +354,8 @@ export default function JobTrackerPage() {
                   const days = daysBetween(j.applied_date || j.created_at);
                   const isOpen = expanded.has(j.id);
                   return (
-                    <>
-                      <TableRow key={j.id} className="cursor-pointer" onClick={() => toggleExpanded(j.id)}>
+                    <FragmentRow key={j.id}>
+                      <TableRow className="cursor-pointer" onClick={() => toggleExpanded(j.id)}>
                         <TableCell className="py-2">
                           {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
@@ -392,7 +392,7 @@ export default function JobTrackerPage() {
                         <TableCell className="text-xs text-muted-foreground">{j.location || '—'}</TableCell>
                       </TableRow>
                       {isOpen && (
-                        <TableRow key={`${j.id}-exp`} className="bg-secondary/30 hover:bg-secondary/30">
+                        <TableRow className="bg-secondary/30 hover:bg-secondary/30">
                           <TableCell></TableCell>
                           <TableCell colSpan={6} className="py-3">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -425,7 +425,7 @@ export default function JobTrackerPage() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </FragmentRow>
                   );
                 })}
               </TableBody>

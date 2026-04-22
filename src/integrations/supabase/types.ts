@@ -120,9 +120,16 @@ export type Database = {
           created_at: string | null
           follow_up_date: string | null
           id: string
+          job_type: string | null
+          location: string | null
           notes: string | null
+          rejection_reason: string | null
           role: string
+          salary: string | null
+          stage: string | null
           status: string | null
+          status_history: Json | null
+          url: string | null
           user_id: string
         }
         Insert: {
@@ -131,9 +138,16 @@ export type Database = {
           created_at?: string | null
           follow_up_date?: string | null
           id?: string
+          job_type?: string | null
+          location?: string | null
           notes?: string | null
+          rejection_reason?: string | null
           role: string
+          salary?: string | null
+          stage?: string | null
           status?: string | null
+          status_history?: Json | null
+          url?: string | null
           user_id: string
         }
         Update: {
@@ -142,9 +156,16 @@ export type Database = {
           created_at?: string | null
           follow_up_date?: string | null
           id?: string
+          job_type?: string | null
+          location?: string | null
           notes?: string | null
+          rejection_reason?: string | null
           role?: string
+          salary?: string | null
+          stage?: string | null
           status?: string | null
+          status_history?: Json | null
+          url?: string | null
           user_id?: string
         }
         Relationships: []

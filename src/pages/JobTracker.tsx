@@ -698,13 +698,14 @@ function KanbanColumn({
 }
 
 function JobCard({
-  job, dragging = false, onOpenDetail, onPrep, onGotCall,
+  job, dragging = false, onOpenDetail, onPrep, onGotCall, onDelete,
 }: {
   job: any;
   dragging?: boolean;
   onOpenDetail?: () => void;
   onPrep?: () => void;
   onGotCall?: () => void;
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: job.id });
   const urgency = urgencyOf(job);
@@ -726,7 +727,20 @@ function JobCard({
           <p className="font-medium text-foreground truncate">{job.company}</p>
           <p className="text-xs text-muted-foreground truncate">{job.role}</p>
         </div>
-        {urgency && <span className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${URGENCY_DOT[urgency]}`} title={`${days}d since applied`} />}
+        <div className="flex items-center gap-1 shrink-0">
+          {urgency && <span className={`h-2 w-2 rounded-full mt-1.5 ${URGENCY_DOT[urgency]}`} title={`${days}d since applied`} />}
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              title="Delete application"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
       {skills.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">

@@ -118,6 +118,7 @@ export default function JobTrackerPage() {
   const [notes, setNotes] = useState('');
   const [followUp, setFollowUp] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [adding, setAdding] = useState(false);
   // Captured by extraction, persisted on add
   const [extractedExtras, setExtractedExtras] = useState<{
     raw_description?: string; experience?: string;

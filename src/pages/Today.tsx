@@ -169,7 +169,7 @@ export default function TodayPage() {
   return (
     <div className="max-w-7xl space-y-6">
       <div>
-        <h1 className="text-2xl font-heading font-bold text-foreground">Good morning, Shyam 👋</h1>
+        <h1 className="text-2xl font-heading font-bold text-foreground">{getGreeting()}, Shyam 👋</h1>
         <LiveClock />
       </div>
 

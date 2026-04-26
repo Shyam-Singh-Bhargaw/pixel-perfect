@@ -37,6 +37,12 @@ interface JobData {
   location: string;
   job_type: string;
   salary: string;
+  experience: string;
+  skills: string[];
+  nice_to_have: string[];
+  responsibilities: string[];
+  interview_focus: string[];
+  raw_description: string;
 }
 
 async function scrapeWithFirecrawl(url: string, apiKey: string): Promise<{ markdown?: string; metadata?: any } | null> {
@@ -59,7 +65,6 @@ async function scrapeWithFirecrawl(url: string, apiKey: string): Promise<{ markd
       console.error("Firecrawl error:", resp.status, data);
       return null;
     }
-    // v2 returns { success, data: { markdown, metadata } }
     const payload = data?.data || data;
     return { markdown: payload?.markdown, metadata: payload?.metadata };
   } catch (e) {
@@ -69,7 +74,8 @@ async function scrapeWithFirecrawl(url: string, apiKey: string): Promise<{ markd
 }
 
 async function extractWithAI(markdown: string, sourceUrl: string, lovableKey: string): Promise<Partial<JobData> | null> {
-  const trimmed = markdown.slice(0, 6000);
+  // Allow more context so we capture the full JD reasoning
+  const trimmed = markdown.slice(0, 14000);
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -83,11 +89,11 @@ async function extractWithAI(markdown: string, sourceUrl: string, lovableKey: st
           {
             role: "system",
             content:
-              "Extract structured job posting data from scraped content. Return ONLY clean values — no extra commentary. If a field is genuinely missing, return an empty string.",
+              "You extract structured job posting data from scraped page content. Return concise, clean values. If a field is genuinely missing, return an empty string or empty array — never invent data. For interview_focus, INFER 3-6 likely interview topics from the role + skills + responsibilities (e.g. 'System Design', 'React internals', 'Behavioral STAR', 'SQL').",
           },
           {
             role: "user",
-            content: `Source URL: ${sourceUrl}\n\nContent:\n${trimmed}`,
+            content: `Source URL: ${sourceUrl}\n\nPage content:\n${trimmed}`,
           },
         ],
         tools: [
@@ -99,13 +105,18 @@ async function extractWithAI(markdown: string, sourceUrl: string, lovableKey: st
               parameters: {
                 type: "object",
                 properties: {
-                  company: { type: "string", description: "Hiring company name only, no suffix like 'Careers' or 'Jobs'" },
-                  role: { type: "string", description: "Job title only, no company name attached" },
-                  location: { type: "string", description: "City, state, country, or 'Remote' / 'Hybrid' / 'Onsite'" },
-                  job_type: { type: "string", description: "One of: Full-time, Part-time, Contract, Internship, or empty" },
-                  salary: { type: "string", description: "Salary range as displayed, e.g. '$120k - $150k' or empty" },
+                  company: { type: "string", description: "Hiring company name only" },
+                  role: { type: "string", description: "Job title only" },
+                  location: { type: "string", description: "City/country or Remote/Hybrid/Onsite" },
+                  job_type: { type: "string", description: "Full-time, Part-time, Contract, Internship, or empty" },
+                  salary: { type: "string", description: "Salary range as displayed, or empty" },
+                  experience: { type: "string", description: "Experience required, e.g. '3-5 years' or 'Senior level'" },
+                  skills: { type: "array", items: { type: "string" }, description: "Required hard/technical skills, short tags" },
+                  nice_to_have: { type: "array", items: { type: "string" }, description: "Bonus / preferred skills" },
+                  responsibilities: { type: "array", items: { type: "string" }, description: "3-5 key responsibilities, one sentence each" },
+                  interview_focus: { type: "array", items: { type: "string" }, description: "3-6 inferred interview topic tags" },
                 },
-                required: ["company", "role", "location", "job_type", "salary"],
+                required: ["company", "role", "location", "job_type", "salary", "experience", "skills", "nice_to_have", "responsibilities", "interview_focus"],
                 additionalProperties: false,
               },
             },
@@ -159,9 +170,14 @@ serve(async (req) => {
       location: "",
       job_type: "",
       salary: "",
+      experience: "",
+      skills: [],
+      nice_to_have: [],
+      responsibilities: [],
+      interview_focus: [],
+      raw_description: "",
     };
 
-    // URL-based fallback
     result.company = pickFromPath(parsedUrl) || inferCompanyFromDomain(parsedUrl.hostname);
 
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
@@ -176,6 +192,10 @@ serve(async (req) => {
 
     const scraped = await scrapeWithFirecrawl(url, firecrawlKey);
 
+    if (scraped?.markdown) {
+      result.raw_description = scraped.markdown;
+    }
+
     if (scraped?.markdown && lovableKey) {
       const ai = await extractWithAI(scraped.markdown, url, lovableKey);
       if (ai) {
@@ -184,10 +204,14 @@ serve(async (req) => {
         if (ai.location) result.location = ai.location;
         if (ai.job_type) result.job_type = ai.job_type;
         if (ai.salary) result.salary = ai.salary;
+        if (ai.experience) result.experience = ai.experience;
+        if (Array.isArray(ai.skills)) result.skills = ai.skills;
+        if (Array.isArray(ai.nice_to_have)) result.nice_to_have = ai.nice_to_have;
+        if (Array.isArray(ai.responsibilities)) result.responsibilities = ai.responsibilities;
+        if (Array.isArray(ai.interview_focus)) result.interview_focus = ai.interview_focus;
       }
     }
 
-    // Use page metadata as additional fallback for role/company
     if (scraped?.metadata) {
       const md = scraped.metadata;
       if (!result.role && md.title) {
@@ -203,7 +227,6 @@ serve(async (req) => {
       if (!result.company && md.ogSiteName) result.company = String(md.ogSiteName).trim();
     }
 
-    // Clean up
     if (result.role) {
       result.role = result.role
         .replace(/\s*[-|·–—]\s*(LinkedIn|Indeed|Glassdoor|Greenhouse|Lever|Ashby|Workday).*$/i, "")

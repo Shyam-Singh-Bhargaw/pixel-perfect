@@ -2,3 +2,6 @@ project_id = "qwqouxprxanokontxaxv"
 
 [functions.extract-job]
 verify_jwt = false
+
+[functions.interview-prep]
+verify_jwt = false

@@ -950,8 +950,8 @@ function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; va
   );
 }
 
-// Tiny spacer used inline above
-function Fragment({ children }: { children?: React.ReactNode }) { return <>{children}</>; }
+
+
 
 /* ============= Prep Modal ============= */
 

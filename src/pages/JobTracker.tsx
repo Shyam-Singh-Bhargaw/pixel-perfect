@@ -203,10 +203,12 @@ export default function JobTrackerPage() {
 
   const addJob = async () => {
     if (!user) return;
+    if (adding) return; // prevent double-submit
     if (!company.trim() && !url.trim()) {
       toast.error('Add a URL or company name');
       return;
     }
+    setAdding(true);
     const finalCompany = company.trim() || domainOf(url) || 'Unknown';
     const finalRole = role.trim() || 'Role TBD';
     const today = new Date().toISOString().slice(0, 10);
@@ -235,13 +237,15 @@ export default function JobTrackerPage() {
     });
     if (error) {
       toast.error('Could not save: ' + error.message);
+      setAdding(false);
       return;
     }
     toast.success('Application added!');
     setUrl(''); setCompany(''); setRole(''); setLocation(''); setJobType('');
     setSalary(''); setNotes(''); setFollowUp(''); setStage('Applied');
     setExtractedExtras({});
-    fetchJobs();
+    await fetchJobs();
+    setAdding(false);
   };
 
   const updateStage = async (id: string, newStage: Stage, rejectionReason?: string) => {

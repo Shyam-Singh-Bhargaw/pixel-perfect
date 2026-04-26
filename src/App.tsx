@@ -18,6 +18,7 @@ import CodingPracticePage from "@/pages/CodingPractice";
 import StudyNotesPage from "@/pages/StudyNotes";
 import NoteViewerPage from "@/pages/NoteViewer";
 import NotFound from "@/pages/NotFound";
+import { useSystemTheme } from "@/hooks/useSystemTheme";
 
 const queryClient = new QueryClient();
 

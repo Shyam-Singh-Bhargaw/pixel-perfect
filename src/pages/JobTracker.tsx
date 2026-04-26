@@ -550,6 +550,7 @@ export default function JobTrackerPage() {
                   onOpenDetail={setDetailJobId}
                   onPrep={setPrepJob}
                   onGotCall={setCallJob}
+                  onDelete={deleteJob}
                 />
               ))}
             </div>

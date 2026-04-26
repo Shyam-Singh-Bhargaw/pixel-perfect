@@ -665,13 +665,14 @@ function StatCard({ label, value, accent = 'text-foreground' }: { label: string;
 }
 
 function KanbanColumn({
-  stage, jobs, onOpenDetail, onPrep, onGotCall,
+  stage, jobs, onOpenDetail, onPrep, onGotCall, onDelete,
 }: {
   stage: Stage;
   jobs: any[];
   onOpenDetail: (id: string) => void;
   onPrep: (j: any) => void;
   onGotCall: (j: any) => void;
+  onDelete: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
@@ -688,6 +689,7 @@ function KanbanColumn({
             onOpenDetail={() => onOpenDetail(j.id)}
             onPrep={() => onPrep(j)}
             onGotCall={() => onGotCall(j)}
+            onDelete={() => onDelete(j.id)}
           />
         ))}
       </div>

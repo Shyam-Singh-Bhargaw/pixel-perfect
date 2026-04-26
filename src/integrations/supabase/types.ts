@@ -118,14 +118,20 @@ export type Database = {
           applied_date: string | null
           company: string
           created_at: string | null
+          experience: string | null
           follow_up_date: string | null
           id: string
+          interview_focus: Json | null
           job_type: string | null
           location: string | null
+          nice_to_have: Json | null
           notes: string | null
+          raw_description: string | null
           rejection_reason: string | null
+          responsibilities: Json | null
           role: string
           salary: string | null
+          skills: Json | null
           stage: string | null
           status: string | null
           status_history: Json | null
@@ -136,14 +142,20 @@ export type Database = {
           applied_date?: string | null
           company: string
           created_at?: string | null
+          experience?: string | null
           follow_up_date?: string | null
           id?: string
+          interview_focus?: Json | null
           job_type?: string | null
           location?: string | null
+          nice_to_have?: Json | null
           notes?: string | null
+          raw_description?: string | null
           rejection_reason?: string | null
+          responsibilities?: Json | null
           role: string
           salary?: string | null
+          skills?: Json | null
           stage?: string | null
           status?: string | null
           status_history?: Json | null
@@ -154,14 +166,20 @@ export type Database = {
           applied_date?: string | null
           company?: string
           created_at?: string | null
+          experience?: string | null
           follow_up_date?: string | null
           id?: string
+          interview_focus?: Json | null
           job_type?: string | null
           location?: string | null
+          nice_to_have?: Json | null
           notes?: string | null
+          raw_description?: string | null
           rejection_reason?: string | null
+          responsibilities?: Json | null
           role?: string
           salary?: string | null
+          skills?: Json | null
           stage?: string | null
           status?: string | null
           status_history?: Json | null

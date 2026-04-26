@@ -118,6 +118,7 @@ export default function JobTrackerPage() {
   const [notes, setNotes] = useState('');
   const [followUp, setFollowUp] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [adding, setAdding] = useState(false);
   // Captured by extraction, persisted on add
   const [extractedExtras, setExtractedExtras] = useState<{
     raw_description?: string; experience?: string;
@@ -202,10 +203,12 @@ export default function JobTrackerPage() {
 
   const addJob = async () => {
     if (!user) return;
+    if (adding) return; // prevent double-submit
     if (!company.trim() && !url.trim()) {
       toast.error('Add a URL or company name');
       return;
     }
+    setAdding(true);
     const finalCompany = company.trim() || domainOf(url) || 'Unknown';
     const finalRole = role.trim() || 'Role TBD';
     const today = new Date().toISOString().slice(0, 10);
@@ -234,13 +237,15 @@ export default function JobTrackerPage() {
     });
     if (error) {
       toast.error('Could not save: ' + error.message);
+      setAdding(false);
       return;
     }
     toast.success('Application added!');
     setUrl(''); setCompany(''); setRole(''); setLocation(''); setJobType('');
     setSalary(''); setNotes(''); setFollowUp(''); setStage('Applied');
     setExtractedExtras({});
-    fetchJobs();
+    await fetchJobs();
+    setAdding(false);
   };
 
   const updateStage = async (id: string, newStage: Stage, rejectionReason?: string) => {
@@ -487,6 +492,15 @@ export default function JobTrackerPage() {
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setCallJob(j)} title="I got a call!">
                               <Phone className="h-3.5 w-3.5" />
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => deleteJob(j.id)}
+                              title="Delete application"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -536,6 +550,7 @@ export default function JobTrackerPage() {
                   onOpenDetail={setDetailJobId}
                   onPrep={setPrepJob}
                   onGotCall={setCallJob}
+                  onDelete={deleteJob}
                 />
               ))}
             </div>
@@ -588,7 +603,10 @@ export default function JobTrackerPage() {
             <Input type="date" value={followUp} onChange={e => setFollowUp(e.target.value)} className="bg-secondary border-border" />
           </div>
           <div className="flex justify-end">
-            <Button onClick={addJob}>Add Application</Button>
+            <Button onClick={addJob} disabled={adding}>
+              {adding && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {adding ? 'Adding…' : 'Add Application'}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -647,13 +665,14 @@ function StatCard({ label, value, accent = 'text-foreground' }: { label: string;
 }
 
 function KanbanColumn({
-  stage, jobs, onOpenDetail, onPrep, onGotCall,
+  stage, jobs, onOpenDetail, onPrep, onGotCall, onDelete,
 }: {
   stage: Stage;
   jobs: any[];
   onOpenDetail: (id: string) => void;
   onPrep: (j: any) => void;
   onGotCall: (j: any) => void;
+  onDelete: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
@@ -670,6 +689,7 @@ function KanbanColumn({
             onOpenDetail={() => onOpenDetail(j.id)}
             onPrep={() => onPrep(j)}
             onGotCall={() => onGotCall(j)}
+            onDelete={() => onDelete(j.id)}
           />
         ))}
       </div>
@@ -678,13 +698,14 @@ function KanbanColumn({
 }
 
 function JobCard({
-  job, dragging = false, onOpenDetail, onPrep, onGotCall,
+  job, dragging = false, onOpenDetail, onPrep, onGotCall, onDelete,
 }: {
   job: any;
   dragging?: boolean;
   onOpenDetail?: () => void;
   onPrep?: () => void;
   onGotCall?: () => void;
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: job.id });
   const urgency = urgencyOf(job);
@@ -706,7 +727,20 @@ function JobCard({
           <p className="font-medium text-foreground truncate">{job.company}</p>
           <p className="text-xs text-muted-foreground truncate">{job.role}</p>
         </div>
-        {urgency && <span className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${URGENCY_DOT[urgency]}`} title={`${days}d since applied`} />}
+        <div className="flex items-center gap-1 shrink-0">
+          {urgency && <span className={`h-2 w-2 rounded-full mt-1.5 ${URGENCY_DOT[urgency]}`} title={`${days}d since applied`} />}
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              title="Delete application"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
       {skills.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">

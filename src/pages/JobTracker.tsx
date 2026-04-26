@@ -593,7 +593,10 @@ export default function JobTrackerPage() {
             <Input type="date" value={followUp} onChange={e => setFollowUp(e.target.value)} className="bg-secondary border-border" />
           </div>
           <div className="flex justify-end">
-            <Button onClick={addJob}>Add Application</Button>
+            <Button onClick={addJob} disabled={adding}>
+              {adding && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {adding ? 'Adding…' : 'Add Application'}
+            </Button>
           </div>
         </CardContent>
       </Card>

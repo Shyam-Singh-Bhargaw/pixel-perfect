@@ -269,7 +269,7 @@ export default function JobTrackerPage() {
 
   const updateJob = async (id: string, patch: Record<string, any>) => {
     setJobs(prev => prev.map(j => j.id === id ? { ...j, ...patch } : j));
-    const { error } = await supabase.from('job_applications').update(patch).eq('id', id);
+    const { error } = await (supabase.from('job_applications') as any).update(patch).eq('id', id);
     if (error) {
       toast.error('Update failed');
       fetchJobs();

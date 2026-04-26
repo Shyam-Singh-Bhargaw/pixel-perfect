@@ -30,6 +30,15 @@ function getCurrentSlotIndex(schedule: typeof NORMAL_SCHEDULE) {
   return 0;
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'Working late';
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  if (hour < 21) return 'Good evening';
+  return 'Good night';
+}
+
 export default function TodayPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<any[]>([]);
@@ -169,7 +178,7 @@ export default function TodayPage() {
   return (
     <div className="max-w-7xl space-y-6">
       <div>
-        <h1 className="text-2xl font-heading font-bold text-foreground">Good morning, Shyam 👋</h1>
+        <h1 className="text-2xl font-heading font-bold text-foreground">{getGreeting()}, Shyam 👋</h1>
         <LiveClock />
       </div>
 

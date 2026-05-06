@@ -245,6 +245,7 @@ export default function JobTrackerPage() {
     setUrl(''); setCompany(''); setRole(''); setLocation(''); setJobType('');
     setSalary(''); setNotes(''); setFollowUp(''); setStage('Applied');
     setExtractedExtras({});
+    setAddFormOpen(false);
     await fetchJobs();
     setAdding(false);
   };

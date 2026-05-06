@@ -8,24 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Pencil, Save, Trash2, X } from 'lucide-react';
 
 const PLATFORMS = ['LinkedIn', 'Twitter/X', 'Instagram', 'Offline/In-person', 'Email', 'Other'];
-
-function formatDate(d: string | null | undefined) {
-  if (!d) return '—';
-  try {
-    return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch { return d; }
-}
 
 export default function NetworkLogPage() {
   const { user } = useAuth();
@@ -36,14 +21,6 @@ export default function NetworkLogPage() {
   const [note, setNote] = useState('');
   const [nextAction, setNextAction] = useState('');
 
-  // Detail sheet
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<any>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const detail = detailId ? contacts.find(c => c.id === detailId) || null : null;
-
   const fetchContacts = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -52,18 +29,12 @@ export default function NetworkLogPage() {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
-    if (error) console.error(error);
+    if (error) { console.error(error); }
     setContacts(data || []);
     setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
-
-  // sync draft when opening
-  useEffect(() => {
-    if (detail) setDraft({ ...detail });
-    if (!detailId) { setEditing(false); setDraft(null); }
-  }, [detailId, detail?.id]);
 
   const addContact = async () => {
     if (!name.trim() || !user) return;
@@ -86,33 +57,6 @@ export default function NetworkLogPage() {
       .update({ contacted: !contact.contacted })
       .eq('id', contact.id);
     if (error) { toast.error('Failed to update'); return; }
-    fetchContacts();
-  };
-
-  const saveEdits = async () => {
-    if (!draft) return;
-    const { error } = await supabase
-      .from('network_log')
-      .update({
-        name: draft.name?.trim() || detail.name,
-        platform: draft.platform,
-        note: draft.note?.trim() || null,
-        next_action: draft.next_action?.trim() || null,
-      })
-      .eq('id', draft.id);
-    if (error) { toast.error('Save failed'); return; }
-    toast.success('Contact updated');
-    setEditing(false);
-    await fetchContacts();
-  };
-
-  const deleteContact = async () => {
-    if (!detail) return;
-    const { error } = await supabase.from('network_log').delete().eq('id', detail.id);
-    if (error) { toast.error('Delete failed'); return; }
-    toast.success('Contact deleted');
-    setConfirmDelete(false);
-    setDetailId(null);
     fetchContacts();
   };
 
@@ -162,19 +106,15 @@ export default function NetworkLogPage() {
             </TableHeader>
             <TableBody>
               {contacts.map(c => (
-                <TableRow
-                  key={c.id}
-                  className={`cursor-pointer hover:bg-secondary/50 transition-colors ${c.contacted ? 'opacity-60' : ''}`}
-                  onClick={() => setDetailId(c.id)}
-                >
-                  <TableCell onClick={e => e.stopPropagation()}>
+                <TableRow key={c.id} className={c.contacted ? 'opacity-60' : ''}>
+                  <TableCell>
                     <Checkbox checked={c.contacted || false} onCheckedChange={() => toggleContacted(c)} />
                   </TableCell>
                   <TableCell className="font-medium text-sm">{c.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{c.platform}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-40 truncate">{c.note || '—'}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{c.next_action || '—'}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{c.date || '—'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.date}</TableCell>
                 </TableRow>
               ))}
               {contacts.length === 0 && (
@@ -184,145 +124,6 @@ export default function NetworkLogPage() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Detail Sheet */}
-      <Sheet open={!!detailId} onOpenChange={o => !o && setDetailId(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          {detail && draft && (
-            <>
-              <SheetHeader>
-                <div className="flex items-center gap-4">
-                  <div
-                    className="h-14 w-14 rounded-full flex items-center justify-center text-xl font-heading font-bold text-white shrink-0"
-                    style={{ backgroundColor: '#7c6ff7' }}
-                  >
-                    {(detail.name || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    {editing ? (
-                      <Input
-                        value={draft.name || ''}
-                        onChange={e => setDraft({ ...draft, name: e.target.value })}
-                        className="bg-secondary border-border"
-                      />
-                    ) : (
-                      <SheetTitle className="text-xl font-heading text-foreground truncate text-left">
-                        {detail.name}
-                      </SheetTitle>
-                    )}
-                    <div className="mt-1">
-                      {editing ? (
-                        <Select value={draft.platform || 'LinkedIn'} onValueChange={v => setDraft({ ...draft, platform: v })}>
-                          <SelectTrigger className="bg-secondary border-border h-7 w-40 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">{detail.platform || 'Other'}</Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </SheetHeader>
-
-              <div className="mt-6 space-y-5">
-                {/* Contacted toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                  <span className="text-sm text-foreground">Contacted / Done</span>
-                  <Checkbox
-                    checked={detail.contacted || false}
-                    onCheckedChange={() => toggleContacted(detail)}
-                  />
-                </div>
-
-                {/* Note */}
-                <div className="space-y-1.5">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Note / Context</p>
-                  {editing ? (
-                    <Textarea
-                      value={draft.note || ''}
-                      onChange={e => setDraft({ ...draft, note: e.target.value })}
-                      placeholder="Note / context"
-                      className="bg-secondary border-border"
-                      rows={4}
-                    />
-                  ) : (
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{detail.note || '—'}</p>
-                  )}
-                </div>
-
-                {/* Next Action */}
-                <div className="space-y-1.5">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Next Action</p>
-                  {editing ? (
-                    <Input
-                      value={draft.next_action || ''}
-                      onChange={e => setDraft({ ...draft, next_action: e.target.value })}
-                      placeholder="Next action"
-                      className="bg-secondary border-border"
-                    />
-                  ) : (
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{detail.next_action || '—'}</p>
-                  )}
-                </div>
-
-                {/* Date */}
-                <div className="space-y-1.5">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Date Added</p>
-                  <p className="text-sm text-foreground">{formatDate(detail.date || detail.created_at)}</p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t border-border">
-                  {editing ? (
-                    <>
-                      <Button onClick={saveEdits} className="flex-1">
-                        <Save className="h-4 w-4 mr-1.5" /> Save
-                      </Button>
-                      <Button variant="outline" onClick={() => { setEditing(false); setDraft({ ...detail }); }}>
-                        <X className="h-4 w-4 mr-1.5" /> Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="outline" onClick={() => setEditing(true)} className="flex-1">
-                        <Pencil className="h-4 w-4 mr-1.5" /> Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setConfirmDelete(true)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1.5" /> Delete
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Delete confirmation */}
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this contact?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove "{detail?.name}" from your network log. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={deleteContact}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

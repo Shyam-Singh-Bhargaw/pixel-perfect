@@ -21,5 +21,3 @@ export function Markdown({ content, className }: { content: string; className?: 
 }
 
 export default Markdown;
-</content>
-</invoke>

@@ -123,14 +123,32 @@ export default function StudyNotesPage() {
   }
 
   const renderNoteCard = (note: any) => (
-    <div key={note.id} className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-0">
+    <div key={note.id} className="flex flex-col gap-2 border-b border-border px-4 py-3 last:border-0">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{note.title}</span>
+        <Link
+          to={`/note/${note.id}`}
+          className="text-sm font-semibold text-foreground hover:text-primary hover:underline truncate"
+        >
+          {note.title}
+        </Link>
         <Badge variant="outline" className="text-xs">{note.category}</Badge>
-        <span className="ml-auto text-xs text-muted-foreground">{note.date}</span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {new Date(note.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+        </span>
+        <Link
+          to={`/note/${note.id}`}
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          title="Open note"
+        >
+          Open <ExternalLink className="h-3 w-3" />
+        </Link>
       </div>
 
-      {note.content && <p className="text-sm text-muted-foreground">{note.content}</p>}
+      {note.content && (
+        <div className="max-h-[300px] overflow-y-auto rounded-md bg-secondary/40 p-3">
+          <Markdown content={note.content} />
+        </div>
+      )}
 
       {note.source_url && (
         <ExternalAnchor href={note.source_url} className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline">

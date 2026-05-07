@@ -390,6 +390,56 @@ export default function JobTrackerPage() {
         </div>
       </div>
 
+      {/* Add form (moved to top) */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-heading flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" /> Add Application
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Paste job posting URL — we'll extract the full JD…"
+              value={url}
+              onChange={e => onUrlChange(e.target.value)}
+              className="bg-secondary border-border"
+            />
+            <Button onClick={() => extractFromUrl(url)} disabled={!url.trim() || extracting} variant="secondary">
+              {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <span className="ml-2">Track This Job</span>
+            </Button>
+          </div>
+          {extractedExtras.raw_description && (
+            <div className="text-xs text-success flex items-center gap-2">
+              <Sparkles className="h-3 w-3" />
+              Captured full JD ({extractedExtras.skills?.length || 0} skills,{' '}
+              {extractedExtras.responsibilities?.length || 0} responsibilities,{' '}
+              {extractedExtras.interview_focus?.length || 0} focus areas)
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Input placeholder="Company" value={company} onChange={e => setCompany(e.target.value)} className="bg-secondary border-border" />
+            <Input placeholder="Role" value={role} onChange={e => setRole(e.target.value)} className="bg-secondary border-border" />
+            <Select value={stage} onValueChange={v => setStage(v as Stage)}>
+              <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>{STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            </Select>
+            <Input placeholder="Location (Remote / city)" value={location} onChange={e => setLocation(e.target.value)} className="bg-secondary border-border" />
+            <Input placeholder="Job type" value={jobType} onChange={e => setJobType(e.target.value)} className="bg-secondary border-border" />
+            <Input placeholder="Salary" value={salary} onChange={e => setSalary(e.target.value)} className="bg-secondary border-border" />
+            <Input placeholder="Notes" value={notes} onChange={e => setNotes(e.target.value)} className="md:col-span-2 bg-secondary border-border" />
+            <Input type="date" value={followUp} onChange={e => setFollowUp(e.target.value)} className="bg-secondary border-border" />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={addJob} disabled={adding}>
+              {adding && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {adding ? 'Adding…' : 'Add Application'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Total Applied" value={stats.total} />

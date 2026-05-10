@@ -1,4 +1,4 @@
-import { CalendarDays, CheckSquare, Brain, Briefcase, Users, BarChart3, BookOpen, Calendar, Bot, Code, StickyNote } from 'lucide-react';
+import { CalendarDays, CheckSquare, Brain, Briefcase, Users, BarChart3, BookOpen, Calendar, Bot, Code, StickyNote, Database } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useStreak } from '@/hooks/useStreak';
@@ -15,6 +15,7 @@ const items = [
   { title: 'Revision Queue', url: '/revision', icon: Brain },
   { title: 'Study Plan', url: '/study-plan', icon: BookOpen },
   { title: 'Coding Practice', url: '/coding', icon: Code },
+  { title: 'Question Bank', url: '/question-bank', icon: Database },
   { title: 'Study Notes', url: '/notes', icon: StickyNote },
   { title: 'Job Tracker', url: '/jobs', icon: Briefcase },
   { title: 'Network Log', url: '/network', icon: Users },

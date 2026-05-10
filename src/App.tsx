@@ -15,6 +15,7 @@ import StudyPlanPage from "@/pages/StudyPlan";
 import ProgressPage from "@/pages/Progress";
 import CalendarView from "@/pages/CalendarView";
 import CodingPracticePage from "@/pages/CodingPractice";
+import QuestionBankPage from "@/pages/QuestionBank";
 import StudyNotesPage from "@/pages/StudyNotes";
 import NoteViewerPage from "@/pages/NoteViewer";
 import NotFound from "@/pages/NotFound";
@@ -41,6 +42,7 @@ function AppRoutes() {
       <Route path="/revision" element={<ProtectedRoute><RevisionPage /></ProtectedRoute>} />
       <Route path="/study-plan" element={<ProtectedRoute><StudyPlanPage /></ProtectedRoute>} />
       <Route path="/coding" element={<ProtectedRoute><CodingPracticePage /></ProtectedRoute>} />
+      <Route path="/question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
       <Route path="/notes" element={<ProtectedRoute><StudyNotesPage /></ProtectedRoute>} />
       <Route path="/jobs" element={<ProtectedRoute><JobTrackerPage /></ProtectedRoute>} />
       <Route path="/network" element={<ProtectedRoute><NetworkLogPage /></ProtectedRoute>} />

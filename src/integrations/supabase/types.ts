@@ -83,6 +83,45 @@ export type Database = {
         }
         Relationships: []
       }
+      company_prep_progress: {
+        Row: {
+          attempts: number
+          company: string
+          id: number
+          is_solved: boolean
+          notes: string | null
+          question_id: number
+          solved_at: string | null
+          starred: boolean
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          company?: string
+          id?: never
+          is_solved?: boolean
+          notes?: string | null
+          question_id: number
+          solved_at?: string | null
+          starred?: boolean
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          company?: string
+          id?: never
+          is_solved?: boolean
+          notes?: string | null
+          question_id?: number
+          solved_at?: string | null
+          starred?: boolean
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_checkins: {
         Row: {
           created_at: string | null

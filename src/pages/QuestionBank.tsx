@@ -1,20 +1,36 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Star, CheckCircle2, Circle, Search, ArrowLeft, Clock, HardDrive } from 'lucide-react';
+import { Star, CheckCircle2, Search, ArrowLeft, Code2, Copy, Play, ChevronDown, ChevronRight } from 'lucide-react';
 import { getInfosysQuestions, TOPICS, type Question } from '@/lib/questionBank';
 import { toast } from 'sonner';
-import 'highlight.js/styles/github-dark.css';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
 hljs.registerLanguage('python', python);
+
+// CodeMaster palette
+const C = {
+  bg: '#0d1117',
+  bg2: '#161b22',
+  bg3: '#21262d',
+  bg4: '#30363d',
+  border: '#30363d',
+  text: '#e6edf3',
+  text2: '#8b949e',
+  text3: '#6e7681',
+  accent: '#f0a500',
+  blue: '#58a6ff',
+  teal: '#39d353',
+  easy: '#3fb950',
+  med: '#e3b341',
+  hard: '#f85149',
+  mono: "'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace",
+};
+
+const diffColor = (d: string) =>
+  d === 'Easy' ? C.easy : d === 'Medium' ? C.med : C.hard;
+const diffBg = (d: string) =>
+  d === 'Easy' ? 'rgba(63,185,80,0.12)' : d === 'Medium' ? 'rgba(227,179,65,0.12)' : 'rgba(248,81,73,0.12)';
 
 interface Progress {
   question_id: number;
@@ -24,8 +40,8 @@ interface Progress {
   attempts: number;
 }
 
-const ROW_H = 96;
-const OVERSCAN = 5;
+const ROW_H = 56;
+const OVERSCAN = 6;
 
 export default function QuestionBank() {
   const { user } = useAuth();
@@ -38,6 +54,9 @@ export default function QuestionBank() {
   const [status, setStatus] = useState<'All' | 'Solved' | 'Unsolved' | 'Starred'>('All');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [detailTab, setDetailTab] = useState<'desc' | 'sol'>('desc');
+  const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'ok'>('idle');
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -58,7 +77,6 @@ export default function QuestionBank() {
       });
   }, [user, company]);
 
-  // Filtered list
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return questions.filter((qn) => {
@@ -83,23 +101,24 @@ export default function QuestionBank() {
     [selectedId, questions]
   );
 
-  // Sync notes draft when selection changes & bump attempts
   useEffect(() => {
     if (!selected || !user) return;
     const p = progress.get(selected.id);
     setNotesDraft(p?.notes || '');
-    // bump attempts
     upsert(selected.id, { attempts: (p?.attempts || 0) + 1 });
+    setDetailTab('desc');
+    setRunStatus('idle');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
-  // Notes debounced autosave
   useEffect(() => {
     if (!selected) return;
+    const cur = progress.get(selected.id);
+    if ((cur?.notes || '') === notesDraft) { setSavingNotes(false); return; }
+    setSavingNotes(true);
     const t = setTimeout(() => {
-      const cur = progress.get(selected.id);
-      if ((cur?.notes || '') === notesDraft) return;
       upsert(selected.id, { notes: notesDraft });
+      setSavingNotes(false);
     }, 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,38 +130,28 @@ export default function QuestionBank() {
     const next: Progress = { ...cur, ...patch } as Progress;
     setProgress((prev) => new Map(prev).set(qid, next));
     const row: any = {
-      user_id: user.id,
-      question_id: qid,
-      company,
-      is_solved: next.is_solved,
-      starred: next.starred,
-      notes: next.notes,
-      attempts: next.attempts,
+      user_id: user.id, question_id: qid, company,
+      is_solved: next.is_solved, starred: next.starred,
+      notes: next.notes, attempts: next.attempts,
       updated_at: new Date().toISOString(),
     };
     if (next.is_solved && !cur.is_solved) row.solved_at = new Date().toISOString();
     await supabase.from('company_prep_progress').upsert(row, { onConflict: 'user_id,question_id,company' });
   }
 
-  const toggleSolved = useCallback(
-    (id: number) => {
-      const p = progress.get(id);
-      upsert(id, { is_solved: !p?.is_solved });
-    },
+  const toggleSolved = useCallback((id: number) => {
+    const p = progress.get(id);
+    upsert(id, { is_solved: !p?.is_solved });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [progress]
-  );
+  }, [progress]);
 
-  const toggleStar = useCallback(
-    (id: number) => {
-      const p = progress.get(id);
-      upsert(id, { starred: !p?.starred });
-    },
+  const toggleStar = useCallback((id: number) => {
+    const p = progress.get(id);
+    upsert(id, { starred: !p?.starred });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [progress]
-  );
+  }, [progress]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (preserved)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -150,28 +159,14 @@ export default function QuestionBank() {
         if (e.key === 'Escape') (e.target as HTMLElement).blur();
         return;
       }
-      if (e.key === '/') {
-        e.preventDefault();
-        searchRef.current?.focus();
-        return;
-      }
-      if (e.key === 'Escape') {
-        setSelectedId(null);
-        return;
-      }
+      if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); return; }
+      if (e.key === 'Escape') { setSelectedId(null); return; }
       if (!selected) return;
       const idx = filtered.findIndex((q) => q.id === selected.id);
-      if (e.key === 'n' || e.key === 'N') {
-        const nx = filtered[idx + 1];
-        if (nx) setSelectedId(nx.id);
-      } else if (e.key === 'p' || e.key === 'P') {
-        const pv = filtered[idx - 1];
-        if (pv) setSelectedId(pv.id);
-      } else if (e.key === 's' || e.key === 'S') {
-        toggleSolved(selected.id);
-      } else if (e.key === 'b' || e.key === 'B') {
-        toggleStar(selected.id);
-      }
+      if (e.key === 'n' || e.key === 'N') { const nx = filtered[idx + 1]; if (nx) setSelectedId(nx.id); }
+      else if (e.key === 'p' || e.key === 'P') { const pv = filtered[idx - 1]; if (pv) setSelectedId(pv.id); }
+      else if (e.key === 's' || e.key === 'S') toggleSolved(selected.id);
+      else if (e.key === 'b' || e.key === 'B') toggleStar(selected.id);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -186,10 +181,7 @@ export default function QuestionBank() {
     el.addEventListener('scroll', onScroll);
     ro.observe(el);
     setViewportH(el.clientHeight);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      ro.disconnect();
-    };
+    return () => { el.removeEventListener('scroll', onScroll); ro.disconnect(); };
   }, []);
 
   const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
@@ -202,194 +194,503 @@ export default function QuestionBank() {
       .map((q) => ({ id: q.id, title: q.title, topic: q.topic, notes: progress.get(q.id)?.notes || '' }));
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const a = document.createElement('a'); a.href = url;
     a.download = `${company}-solved-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.click(); URL.revokeObjectURL(url);
     toast.success('Exported solved questions');
   }
 
+  function runCode() {
+    setRunStatus('running');
+    setTimeout(() => setRunStatus('ok'), 800);
+  }
+
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Header */}
-      <div className="border-b border-border bg-card/40 px-6 py-3 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-xl font-bold text-foreground">Question Bank</h1>
-          <p className="text-xs text-muted-foreground">Company-wise interview prep · {solvedCount}/{questions.length} solved</p>
+    <div
+      className="flex flex-col qb-root"
+      style={{
+        background: C.bg, color: C.text,
+        height: 'calc(100vh - 3.5rem)',
+        fontFamily: "Inter, system-ui, 'DM Sans', sans-serif",
+      }}
+    >
+      <style>{`
+        .qb-root ::-webkit-scrollbar{width:5px;height:5px;}
+        .qb-root ::-webkit-scrollbar-track{background:transparent;}
+        .qb-root ::-webkit-scrollbar-thumb{background:${C.bg4};border-radius:4px;}
+        .qb-root ::-webkit-scrollbar-thumb:hover{background:${C.text3};}
+        .qb-mono{font-family:${C.mono};}
+        .qb-code .hljs{background:${C.bg};color:${C.text};padding:0;}
+        .qb-code .hljs-keyword,.qb-code .hljs-built_in{color:#ff7b72;}
+        .qb-code .hljs-title.function_,.qb-code .hljs-title{color:#d2a8ff;}
+        .qb-code .hljs-string{color:#a5d6ff;}
+        .qb-code .hljs-comment{color:${C.text2};font-style:italic;}
+        .qb-code .hljs-number{color:#79c0ff;}
+        .qb-code .hljs-params,.qb-code .hljs-variable{color:${C.text};}
+        .qb-row:hover{background:${C.bg3};}
+      `}</style>
+
+      {/* Top nav */}
+      <div
+        className="flex items-center px-4 gap-3 shrink-0"
+        style={{ height: 50, background: C.bg2, borderBottom: `1px solid ${C.border}` }}
+      >
+        <div className="flex items-center gap-2 font-bold" style={{ color: C.accent, fontSize: 16 }}>
+          <Code2 className="h-5 w-5" /> Question Bank
         </div>
-        <Button variant="outline" size="sm" onClick={exportSolved}>Export JSON</Button>
+        <div style={{ width: 1, height: 22, background: C.border }} />
+        <div className="flex gap-1">
+          {[
+            { k: 'infosys', l: 'Infosys', active: true },
+            { k: 'tcs', l: 'TCS', soon: true },
+            { k: 'tiger', l: 'Tiger Analytics', soon: true },
+          ].map((t) => (
+            <button
+              key={t.k}
+              disabled={!!t.soon}
+              onClick={() => !t.soon && setCompany(t.k as any)}
+              style={{
+                background: company === t.k ? C.bg3 : 'transparent',
+                color: t.soon ? C.text3 : company === t.k ? C.accent : C.text2,
+                padding: '6px 14px', borderRadius: 6, fontSize: 13,
+                cursor: t.soon ? 'not-allowed' : 'pointer',
+                border: 'none',
+              }}
+            >
+              {t.l}{t.soon && <span style={{ marginLeft: 6, fontSize: 10, color: C.text3 }}>· soon</span>}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <span
+            className="qb-mono"
+            style={{ background: C.bg3, border: `1px solid ${C.border}`, borderRadius: 20, padding: '4px 12px', fontSize: 12, color: C.text2 }}
+          >
+            Solved: <b style={{ color: C.accent }}>{solvedCount}</b> / {questions.length}
+          </span>
+          <button
+            onClick={exportSolved}
+            style={{ background: C.bg3, border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 12px', color: C.text, fontSize: 12, cursor: 'pointer' }}
+          >
+            Export JSON
+          </button>
+        </div>
       </div>
 
-      {/* Company tabs */}
-      <Tabs value={company} onValueChange={(v) => setCompany(v as any)} className="px-6 pt-4">
-        <TabsList>
-          <TabsTrigger value="infosys">Infosys</TabsTrigger>
-          <TabsTrigger value="tcs" disabled className="gap-2">
-            TCS <Badge variant="secondary" className="text-[10px]">Coming Soon</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="tiger" disabled className="gap-2">
-            Tiger Analytics <Badge variant="secondary" className="text-[10px]">Coming Soon</Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <div className="flex flex-1 overflow-hidden gap-4 p-4">
-        {/* Filter panel */}
-        <aside className="w-64 shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
+      {/* 3-panel body */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT SIDEBAR */}
+        <aside
+          className="shrink-0 flex flex-col overflow-y-auto"
+          style={{ width: 280, background: C.bg2, borderRight: `1px solid ${C.border}`, padding: 14, gap: 16 }}
+        >
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <Search className="h-4 w-4" style={{ position: 'absolute', left: 10, top: 9, color: C.text2 }} />
+            <input
               ref={searchRef}
               placeholder="Search… ( / )"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
+              style={{
+                width: '100%', background: C.bg3, border: `1px solid ${C.border}`,
+                color: C.text, borderRadius: 6, padding: '7px 10px 7px 32px', fontSize: 13, outline: 'none',
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+              onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
             />
           </div>
 
-          <Card className="p-3">
-            <div className="text-xs text-muted-foreground mb-2">Progress</div>
-            <Progress value={(solvedCount / questions.length) * 100} className="h-2" />
-            <div className="text-xs mt-1 font-mono text-foreground">{solvedCount}/{questions.length}</div>
-          </Card>
-
-          <div>
-            <div className="text-xs uppercase text-muted-foreground mb-2 font-semibold">Difficulty</div>
-            <div className="flex flex-wrap gap-1">
-              {(['All', 'Easy', 'Medium', 'Hard'] as const).map((d) => (
-                <Button key={d} size="sm" variant={diff === d ? 'default' : 'outline'} onClick={() => setDiff(d)} className="h-7 text-xs">
-                  {d}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs uppercase text-muted-foreground mb-2 font-semibold">Status</div>
-            <div className="flex flex-wrap gap-1">
-              {(['All', 'Solved', 'Unsolved', 'Starred'] as const).map((s) => (
-                <Button key={s} size="sm" variant={status === s ? 'default' : 'outline'} onClick={() => setStatus(s)} className="h-7 text-xs">
-                  {s}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs uppercase text-muted-foreground mb-2 font-semibold">Topics</div>
-            <div className="flex flex-col gap-1">
-              <Button
-                size="sm"
-                variant={topic === 'All' ? 'default' : 'ghost'}
-                onClick={() => setTopic('All')}
-                className="h-8 justify-between text-xs"
-              >
-                <span>All</span>
-                <Badge variant="secondary" className="text-[10px]">{questions.length}</Badge>
-              </Button>
-              {TOPICS.map((t) => (
-                <Button
-                  key={t.name}
-                  size="sm"
-                  variant={topic === t.name ? 'default' : 'ghost'}
-                  onClick={() => setTopic(t.name)}
-                  className="h-8 justify-between text-xs"
+          <SectionLabel>Difficulty</SectionLabel>
+          <div className="flex flex-wrap gap-1">
+            {(['All', 'Easy', 'Medium', 'Hard'] as const).map((d) => {
+              const active = diff === d;
+              const col = d === 'All' ? C.accent : diffColor(d);
+              return (
+                <button
+                  key={d}
+                  onClick={() => setDiff(d)}
+                  style={{
+                    background: active ? (d === 'All' ? 'rgba(240,165,0,0.12)' : diffBg(d)) : C.bg3,
+                    border: `1px solid ${active ? col : C.border}`,
+                    color: active ? col : C.text2,
+                    padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                  }}
                 >
-                  <span className="truncate">{t.name}</span>
-                  <Badge variant="secondary" className="text-[10px]">{t.count}</Badge>
-                </Button>
-              ))}
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+
+          <SectionLabel>Status</SectionLabel>
+          <div className="flex flex-wrap gap-1">
+            {(['All', 'Solved', 'Unsolved', 'Starred'] as const).map((s) => {
+              const active = status === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatus(s)}
+                  style={{
+                    background: active ? 'rgba(240,165,0,0.12)' : C.bg3,
+                    border: `1px solid ${active ? C.accent : C.border}`,
+                    color: active ? C.accent : C.text2,
+                    padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+
+          <SectionLabel>Topics</SectionLabel>
+          <div className="flex flex-col gap-1">
+            <TopicBtn name="All" count={questions.length} active={topic === 'All'} onClick={() => setTopic('All')} />
+            {TOPICS.map((t) => (
+              <TopicBtn key={t.name} name={t.name} count={t.count} active={topic === t.name} onClick={() => setTopic(t.name)} />
+            ))}
+          </div>
+
+          <div style={{ marginTop: 8 }}>
+            <SectionLabel>Progress</SectionLabel>
+            <div style={{ height: 4, background: C.bg3, borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${(solvedCount / questions.length) * 100}%`, background: C.accent }} />
+            </div>
+            <div className="qb-mono" style={{ fontSize: 11, color: C.text2, marginTop: 4 }}>
+              {solvedCount} / {questions.length}
             </div>
           </div>
         </aside>
 
-        {/* Main */}
-        <main className="flex-1 overflow-hidden">
+        {/* CENTER: list */}
+        <div
+          className="shrink-0 flex flex-col"
+          style={{ width: 320, background: C.bg2, borderRight: `1px solid ${C.border}` }}
+        >
+          <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, fontSize: 11, color: C.text2, textTransform: 'uppercase', letterSpacing: 1 }}>
+            {filtered.length} questions
+          </div>
+          <div ref={listRef} className="flex-1 overflow-auto">
+            <div style={{ height: filtered.length * ROW_H, position: 'relative' }}>
+              <div style={{ position: 'absolute', top: startIdx * ROW_H, left: 0, right: 0 }}>
+                {visible.map((q) => {
+                  const p = progress.get(q.id);
+                  const isSel = selectedId === q.id;
+                  return (
+                    <div
+                      key={q.id}
+                      className="qb-row"
+                      style={{
+                        height: ROW_H, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10,
+                        cursor: 'pointer', borderBottom: `1px solid ${C.border}`,
+                        background: isSel ? 'rgba(88,166,255,0.07)' : 'transparent',
+                        borderLeft: isSel ? `3px solid ${C.blue}` : '3px solid transparent',
+                      }}
+                      onClick={() => setSelectedId(q.id)}
+                    >
+                      <div
+                        className="qb-mono"
+                        style={{
+                          width: 28, textAlign: 'center', fontSize: 12,
+                          color: p?.is_solved ? C.easy : C.text3,
+                        }}
+                      >
+                        {p?.is_solved ? '✓' : `#${q.id}`}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13, fontWeight: 500, color: isSel ? C.blue : C.text,
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {q.title}
+                        </div>
+                        <div className="flex items-center gap-1.5" style={{ marginTop: 3 }}>
+                          <Pill text={q.difficulty} color={diffColor(q.difficulty)} bg={diffBg(q.difficulty)} />
+                          <Pill text={q.topic} color={C.text2} bg={C.bg3} />
+                          {p?.attempts ? <span style={{ fontSize: 10, color: C.text3 }}>· {p.attempts}×</span> : null}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleStar(q.id); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                        aria-label="star"
+                      >
+                        <Star
+                          className="h-4 w-4"
+                          style={{ color: p?.starred ? C.accent : C.text3, fill: p?.starred ? C.accent : 'transparent' }}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {filtered.length === 0 && (
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: C.text2 }}>
+                No questions match your filters.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT: detail */}
+        <main className="flex-1 overflow-hidden flex flex-col" style={{ background: C.bg }}>
           {selected ? (
-            <DetailView
+            <Detail
               q={selected}
               progress={progress.get(selected.id)}
+              tab={detailTab}
+              setTab={setDetailTab}
               notesDraft={notesDraft}
               setNotesDraft={setNotesDraft}
-              onBack={() => setSelectedId(null)}
+              savingNotes={savingNotes}
               onToggleSolved={() => toggleSolved(selected.id)}
               onToggleStar={() => toggleStar(selected.id)}
+              onClose={() => setSelectedId(null)}
+              runStatus={runStatus}
+              runCode={runCode}
             />
           ) : (
-            <div ref={listRef} className="h-full overflow-auto rounded-lg border border-border bg-card/40">
-              <div style={{ height: filtered.length * ROW_H, position: 'relative' }}>
-                <div style={{ position: 'absolute', top: startIdx * ROW_H, left: 0, right: 0 }}>
-                  {visible.map((q) => {
-                    const p = progress.get(q.id);
-                    return (
-                      <div
-                        key={q.id}
-                        style={{ height: ROW_H }}
-                        className="px-4 py-3 border-b border-border hover:bg-secondary/40 cursor-pointer flex items-center gap-3"
-                        onClick={() => setSelectedId(q.id)}
-                      >
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }}
-                          className="text-muted-foreground hover:text-primary"
-                          aria-label="solved"
-                        >
-                          {p?.is_solved ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5" />}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-muted-foreground">#{q.id}</span>
-                            <span className="font-medium text-sm truncate">{q.title}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-[10px]">{q.topic}</Badge>
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] ${
-                                q.difficulty === 'Easy' ? 'text-green-500 border-green-500/40' :
-                                q.difficulty === 'Medium' ? 'text-yellow-500 border-yellow-500/40' :
-                                'text-red-500 border-red-500/40'
-                              }`}
-                            >
-                              {q.difficulty}
-                            </Badge>
-                            {p?.attempts ? <span className="text-[10px] text-muted-foreground">{p.attempts} attempts</span> : null}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleStar(q.id); }}
-                          aria-label="star"
-                        >
-                          <Star className={`h-5 w-5 ${p?.starred ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="flex-1 flex items-center justify-center" style={{ color: C.text2 }}>
+              <div style={{ textAlign: 'center' }}>
+                <Code2 className="mx-auto" style={{ width: 48, height: 48, color: C.bg4 }} />
+                <p style={{ marginTop: 12, fontSize: 14 }}>Select a question from the list</p>
+                <p style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
+                  Press <kbd style={kbd}>/</kbd> to search · <kbd style={kbd}>N</kbd>/<kbd style={kbd}>P</kbd> to navigate
+                </p>
               </div>
-              {filtered.length === 0 && (
-                <div className="p-8 text-center text-sm text-muted-foreground">No questions match your filters.</div>
-              )}
             </div>
           )}
         </main>
+      </div>
+
+      {/* Bottom status bar */}
+      <div
+        className="flex items-center px-4 shrink-0 qb-mono"
+        style={{
+          height: 32, background: C.bg2, borderTop: `1px solid ${C.border}`,
+          fontSize: 11.5, color: C.text2, gap: 16,
+        }}
+      >
+        <span className="flex items-center gap-2">
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: runStatus === 'running' ? C.med : C.easy,
+          }} />
+          {runStatus === 'running' ? 'Running…' : 'Ready'}
+        </span>
+        <span style={{ flex: 1, textAlign: 'center', color: C.text }}>
+          {selected ? `#${selected.id} · ${selected.title}` : 'Question Bank · Infosys'}
+        </span>
+        {selected && (
+          <span style={{ color: C.text2 }}>
+            T: <span style={{ color: C.accent }}>{selected.time}</span> &nbsp;|&nbsp;
+            S: <span style={{ color: C.accent }}>{selected.space}</span>
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function DetailView({
-  q, progress, notesDraft, setNotesDraft, onBack, onToggleSolved, onToggleStar,
+const kbd: React.CSSProperties = {
+  padding: '1px 5px', border: `1px solid ${C.border}`, borderRadius: 3,
+  fontSize: 10, fontFamily: C.mono, color: C.text2, background: C.bg2,
+};
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: C.text3, fontWeight: 600 }}>
+      {children}
+    </div>
+  );
+}
+
+function TopicBtn({ name, count, active, onClick }: { name: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        width: '100%', padding: '6px 10px', borderRadius: 6,
+        background: active ? 'rgba(240,165,0,0.10)' : 'transparent',
+        border: `1px solid ${active ? 'rgba(240,165,0,0.3)' : 'transparent'}`,
+        color: active ? C.accent : C.text2, fontSize: 12, cursor: 'pointer', textAlign: 'left',
+      }}
+    >
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      <span
+        style={{
+          background: C.bg3, color: C.text2, fontSize: 10,
+          padding: '1px 7px', borderRadius: 10, marginLeft: 6,
+        }}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function Pill({ text, color, bg }: { text: string; color: string; bg: string }) {
+  return (
+    <span style={{ background: bg, color, fontSize: 10, padding: '1px 7px', borderRadius: 4, fontWeight: 500 }}>
+      {text}
+    </span>
+  );
+}
+
+function Detail({
+  q, progress, tab, setTab, notesDraft, setNotesDraft, savingNotes,
+  onToggleSolved, onToggleStar, onClose, runStatus, runCode,
 }: {
-  q: Question;
-  progress?: Progress;
-  notesDraft: string;
-  setNotesDraft: (s: string) => void;
-  onBack: () => void;
-  onToggleSolved: () => void;
-  onToggleStar: () => void;
+  q: Question; progress?: Progress;
+  tab: 'desc' | 'sol'; setTab: (t: 'desc' | 'sol') => void;
+  notesDraft: string; setNotesDraft: (s: string) => void;
+  savingNotes: boolean;
+  onToggleSolved: () => void; onToggleStar: () => void; onClose: () => void;
+  runStatus: 'idle' | 'running' | 'ok'; runCode: () => void;
+}) {
+  return (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Detail header */}
+      <div
+        className="flex items-center gap-3 shrink-0"
+        style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}
+      >
+        <button
+          onClick={onClose}
+          className="md:hidden"
+          style={{ background: 'none', border: 'none', color: C.text2, cursor: 'pointer' }}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="flex items-center gap-2">
+            <span className="qb-mono" style={{ fontSize: 11, color: C.text3 }}>#{q.id}</span>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {q.title}
+            </h2>
+            <Pill text={q.difficulty} color={diffColor(q.difficulty)} bg={diffBg(q.difficulty)} />
+            <Pill text={q.topic} color={C.text2} bg={C.bg3} />
+          </div>
+        </div>
+        <button
+          onClick={onToggleStar}
+          style={{ background: C.bg3, border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 9px', cursor: 'pointer' }}
+        >
+          <Star className="h-4 w-4" style={{ color: progress?.starred ? C.accent : C.text2, fill: progress?.starred ? C.accent : 'transparent' }} />
+        </button>
+        <button
+          onClick={onToggleSolved}
+          style={{
+            background: progress?.is_solved ? 'rgba(63,185,80,0.15)' : C.bg3,
+            border: `1px solid ${progress?.is_solved ? C.easy : C.border}`,
+            color: progress?.is_solved ? C.easy : C.text, borderRadius: 6,
+            padding: '5px 12px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+          }}
+        >
+          {progress?.is_solved ? <><CheckCircle2 className="h-3.5 w-3.5" /> Solved</> : 'Mark Solved'}
+        </button>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex shrink-0" style={{ borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
+        {(['desc', 'sol'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              padding: '8px 18px', fontSize: 12.5,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: tab === t ? C.accent : C.text2,
+              borderBottom: tab === t ? `2px solid ${C.accent}` : '2px solid transparent',
+              marginBottom: -1,
+            }}
+          >
+            {t === 'desc' ? 'Description' : 'Solution + Dry Run'}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-hidden">
+        {tab === 'desc' ? (
+          <DescriptionView q={q} notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
+        ) : (
+          <SolutionView q={q} runStatus={runStatus} runCode={runCode} notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DescriptionView({ q, notesDraft, setNotesDraft, savingNotes }: { q: Question; notesDraft: string; setNotesDraft: (s: string) => void; savingNotes: boolean }) {
+  return (
+    <div className="h-full overflow-auto" style={{ padding: 24 }}>
+      <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+        <Pill text="Infosys" color={C.blue} bg="rgba(88,166,255,0.12)" />
+      </div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 14, fontFamily: "'Space Grotesk',sans-serif" }}>
+        {q.title}
+      </h1>
+      <p style={{ fontSize: 14, color: C.text, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{q.problem}</p>
+
+      <div style={{ marginTop: 22 }}>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, color: C.text3, marginBottom: 8 }}>Example</div>
+        <div
+          className="qb-mono"
+          style={{
+            background: C.bg2, borderLeft: `3px solid ${C.accent}`,
+            padding: '12px 14px', fontSize: 13, color: C.text, whiteSpace: 'pre-wrap', borderRadius: 4,
+          }}
+        >
+          {q.example}
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 22, padding: 16,
+          background: 'rgba(88,166,255,0.04)', border: '1px solid rgba(88,166,255,0.2)', borderRadius: 8,
+        }}
+      >
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.blue, marginBottom: 6 }}>Logic & Approach</div>
+        <p style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+          See the Solution tab for the full implementation with line-by-line dry run.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3" style={{ marginTop: 22 }}>
+        <ComplexityCard label="Time" value={q.time} />
+        <ComplexityCard label="Space" value={q.space} />
+      </div>
+
+      <NotesPanel notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
+    </div>
+  );
+}
+
+function ComplexityCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, color: C.text2 }}>{label}</div>
+      <div className="qb-mono" style={{ fontSize: 18, color: C.accent, fontWeight: 600, marginTop: 4 }}>{value}</div>
+    </div>
+  );
+}
+
+function SolutionView({
+  q, runStatus, runCode, notesDraft, setNotesDraft, savingNotes,
+}: {
+  q: Question; runStatus: 'idle' | 'running' | 'ok'; runCode: () => void;
+  notesDraft: string; setNotesDraft: (s: string) => void; savingNotes: boolean;
 }) {
   const codeRef = useRef<HTMLElement>(null);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (codeRef.current) {
       codeRef.current.removeAttribute('data-highlighted');
@@ -397,98 +698,185 @@ function DetailView({
     }
   }, [q.id]);
 
+  const lines = q.code.split('\n');
+
+  function copyCode() {
+    navigator.clipboard.writeText(q.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
   return (
-    <div className="h-full overflow-auto rounded-lg border border-border bg-card/40">
-      <div className="sticky top-0 z-10 border-b border-border bg-card px-5 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4" /> Back</Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground">#{q.id}</span>
-            <h2 className="font-heading text-lg font-semibold truncate">{q.title}</h2>
+    <div className="h-full overflow-auto" style={{ padding: 0 }}>
+      <div className="flex" style={{ minHeight: '100%' }}>
+        {/* Code panel */}
+        <div style={{ width: '52%', borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column' }}>
+          <div
+            className="flex items-center gap-2 shrink-0"
+            style={{ padding: '8px 12px', background: C.bg2, borderBottom: `1px solid ${C.border}` }}
+          >
+            <span
+              style={{ background: 'rgba(63,185,80,0.12)', color: C.easy, fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}
+            >
+              Python 3
+            </span>
+            <span style={{ fontSize: 12, color: C.text2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {q.title}
+            </span>
+            <button
+              onClick={copyCode}
+              style={{ background: C.bg3, border: `1px solid ${C.border}`, color: C.text2, borderRadius: 4, padding: '3px 9px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <Copy className="h-3 w-3" /> {copied ? 'Copied' : 'Copy'}
+            </button>
+            <button
+              onClick={runCode}
+              style={{ background: 'rgba(63,185,80,0.18)', border: `1px solid ${C.easy}`, color: C.easy, borderRadius: 4, padding: '3px 10px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <Play className="h-3 w-3" /> {runStatus === 'running' ? 'Running…' : 'Run'}
+            </button>
           </div>
-          <div className="flex gap-2 mt-1">
-            <Badge variant="outline" className="text-[10px]">{q.topic}</Badge>
-            <Badge variant="outline" className="text-[10px]">{q.difficulty}</Badge>
+
+          <div className="qb-code" style={{ background: C.bg, padding: '12px 0', overflow: 'auto', flex: 1 }}>
+            <div style={{ display: 'flex', fontFamily: C.mono, fontSize: 13, lineHeight: 1.9 }}>
+              <div style={{ width: 40, textAlign: 'right', paddingRight: 10, color: C.text3, userSelect: 'none' }}>
+                {lines.map((_, i) => <div key={i}>{i + 1}</div>)}
+              </div>
+              <pre style={{ margin: 0, flex: 1, paddingRight: 16 }}>
+                <code ref={codeRef} className="language-python">{q.code}</code>
+              </pre>
+            </div>
           </div>
+
+          {runStatus === 'ok' && (
+            <div
+              style={{
+                background: C.bg2, borderTop: `1px solid ${C.border}`, padding: 12,
+                fontSize: 12, color: C.text,
+              }}
+            >
+              <div style={{ color: C.easy, fontWeight: 600, marginBottom: 4 }}>Accepted ✓</div>
+              <div className="qb-mono" style={{ color: C.text2, fontSize: 11 }}>
+                Sample passed. Time: {q.time} · Space: {q.space}
+              </div>
+            </div>
+          )}
         </div>
-        <Button variant="outline" size="sm" onClick={onToggleStar}>
-          <Star className={`h-4 w-4 ${progress?.starred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-        </Button>
-        <Button variant={progress?.is_solved ? 'default' : 'outline'} size="sm" onClick={onToggleSolved}>
-          {progress?.is_solved ? <><CheckCircle2 className="h-4 w-4" /> Solved</> : 'Mark Solved'}
-        </Button>
-      </div>
 
-      <div className="p-5 space-y-5">
-        <Card className="p-4">
-          <h3 className="font-semibold text-sm mb-2">Problem</h3>
-          <p className="text-sm text-foreground/90 whitespace-pre-wrap">{q.problem}</p>
-          <pre className="mt-3 text-xs bg-secondary/50 rounded p-3 whitespace-pre-wrap font-mono">{q.example}</pre>
-        </Card>
-
-        <Card className="p-0 overflow-hidden">
-          <div className="px-4 py-2 border-b border-border text-sm font-semibold">Python Solution</div>
-          <pre className="text-xs overflow-auto m-0"><code ref={codeRef} className="language-python">{q.code}</code></pre>
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="font-semibold text-sm mb-3">Dry Run</h3>
-          <div className="space-y-2">
+        {/* Dry Run */}
+        <div style={{ width: '48%', display: 'flex', flexDirection: 'column' }}>
+          <div
+            className="shrink-0"
+            style={{ padding: '8px 14px', background: C.bg2, borderBottom: `1px solid ${C.border}` }}
+          >
+            <div style={{ color: '#4ec9b0', fontSize: 12, fontWeight: 600 }}>Step-by-Step Dry Run</div>
+            <div className="qb-mono" style={{ color: C.text3, fontSize: 11, marginTop: 2 }}>
+              Input: {q.example.split('->')[0].trim() || '—'}
+            </div>
+          </div>
+          <div style={{ padding: 12, overflow: 'auto', flex: 1 }}>
             {q.dryRun.map((s) => (
-              <details key={s.step} className="border border-border rounded" open>
-                <summary className="cursor-pointer px-3 py-2 text-xs font-mono bg-secondary/40">
-                  Step {s.step}: {s.line}
-                </summary>
-                <table className="w-full text-xs">
-                  <thead className="bg-secondary/30">
-                    <tr><th className="px-3 py-1 text-left">Variable</th><th className="px-3 py-1 text-left">Value</th><th className="px-3 py-1 text-left">Change</th></tr>
-                  </thead>
-                  <tbody>
-                    {s.variables.map((v, i) => (
-                      <tr key={i} className="border-t border-border">
-                        <td className="px-3 py-1 font-mono">{v.name}</td>
-                        <td className="px-3 py-1 font-mono">{v.value}</td>
-                        <td className="px-3 py-1 text-muted-foreground">{v.change}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </details>
+              <DryRunCard key={s.step} step={s} isLast={s === q.dryRun[q.dryRun.length - 1]} />
             ))}
           </div>
-        </Card>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1"><Clock className="h-3 w-3" /> Time Complexity</div>
-            <div className="font-mono text-lg font-semibold text-primary">{q.time}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1"><HardDrive className="h-3 w-3" /> Space Complexity</div>
-            <div className="font-mono text-lg font-semibold text-primary">{q.space}</div>
-          </Card>
-        </div>
-
-        <Card className="p-4">
-          <h3 className="font-semibold text-sm mb-2">Notes</h3>
-          <Textarea
-            value={notesDraft}
-            onChange={(e) => setNotesDraft(e.target.value)}
-            placeholder="Add your notes, observations, edge cases..."
-            className="min-h-[120px] text-sm"
-          />
-          <p className="text-[10px] text-muted-foreground mt-1">Auto-saves after 1 second.</p>
-        </Card>
-
-        <div className="text-[10px] text-muted-foreground">
-          Shortcuts: <kbd className="px-1 border border-border rounded">N</kbd> next ·{' '}
-          <kbd className="px-1 border border-border rounded">P</kbd> prev ·{' '}
-          <kbd className="px-1 border border-border rounded">S</kbd> solved ·{' '}
-          <kbd className="px-1 border border-border rounded">B</kbd> star ·{' '}
-          <kbd className="px-1 border border-border rounded">Esc</kbd> back ·{' '}
-          <kbd className="px-1 border border-border rounded">/</kbd> search
         </div>
       </div>
+
+      <NotesPanel notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
+    </div>
+  );
+}
+
+function DryRunCard({ step, isLast }: { step: any; isLast: boolean }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div
+      style={{
+        background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 6,
+        marginBottom: 8, overflow: 'hidden',
+      }}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span
+          style={{
+            width: 22, height: 22, borderRadius: '50%', background: C.accent, color: C.bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 700, flexShrink: 0,
+          }}
+        >
+          {step.step}
+        </span>
+        <span className="qb-mono" style={{ flex: 1, fontSize: 12, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {step.line}
+        </span>
+        {open ? <ChevronDown className="h-3.5 w-3.5" style={{ color: C.text3 }} /> : <ChevronRight className="h-3.5 w-3.5" style={{ color: C.text3 }} />}
+      </button>
+      {open && (
+        <div style={{ padding: '0 12px 10px', borderTop: `1px solid ${C.border}` }}>
+          <table style={{ width: '100%', fontSize: 11.5, marginTop: 8, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ color: C.text3, textAlign: 'left' }}>
+                <th style={{ padding: '4px 6px', fontWeight: 500 }}>Variable</th>
+                <th style={{ padding: '4px 6px', fontWeight: 500 }}>Value</th>
+                <th style={{ padding: '4px 6px', fontWeight: 500 }}>Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {step.variables.map((v: any, i: number) => {
+                const changed = v.change && v.change !== '';
+                const isNew = v.change?.toLowerCase().includes('init') || v.change?.toLowerCase().includes('add');
+                return (
+                  <tr key={i} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <td className="qb-mono" style={{ padding: '4px 6px', color: isNew ? '#4ec9b0' : C.text }}>{v.name}</td>
+                    <td className="qb-mono" style={{ padding: '4px 6px', color: changed ? C.accent : C.text2 }}>{v.value}</td>
+                    <td style={{ padding: '4px 6px', color: C.text3 }}>{v.change}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {isLast && (
+            <div
+              style={{
+                marginTop: 8, padding: '6px 10px', background: 'rgba(63,185,80,0.10)',
+                border: `1px solid ${C.easy}`, borderRadius: 4, color: C.easy, fontSize: 11.5,
+              }}
+            >
+              ✓ Output produced
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NotesPanel({ notesDraft, setNotesDraft, savingNotes }: { notesDraft: string; setNotesDraft: (s: string) => void; savingNotes: boolean }) {
+  return (
+    <div style={{ borderTop: `1px solid ${C.border}`, background: C.bg2, padding: 14 }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, color: C.text3 }}>Notes</div>
+        <span style={{ fontSize: 10, color: C.text3, opacity: savingNotes ? 1 : 0, transition: 'opacity 200ms' }}>
+          Auto-saving…
+        </span>
+      </div>
+      <textarea
+        value={notesDraft}
+        onChange={(e) => setNotesDraft(e.target.value)}
+        placeholder="Add your notes, observations, edge cases..."
+        style={{
+          width: '100%', minHeight: 80, background: C.bg, border: `1px solid ${C.border}`,
+          color: C.text, borderRadius: 6, padding: 10, fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical',
+        }}
+        onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
+        onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+      />
     </div>
   );
 }

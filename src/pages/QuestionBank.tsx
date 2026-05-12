@@ -295,11 +295,37 @@ export default function QuestionBank() {
       </div>
 
       {/* 3-panel body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
+        {/* Sidebar collapse toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: collapsed ? 0 : 280 - 14,
+            width: 28, height: 28, borderRadius: '50%',
+            background: C.bg3, border: `1px solid ${C.border}`,
+            color: C.text2, cursor: 'pointer', zIndex: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'left 0.25s ease',
+          }}
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+
         {/* LEFT SIDEBAR */}
         <aside
           className="shrink-0 flex flex-col overflow-y-auto"
-          style={{ width: 280, background: C.bg2, borderRight: `1px solid ${C.border}`, padding: 14, gap: 16 }}
+          style={{
+            width: collapsed ? 0 : 280,
+            opacity: collapsed ? 0 : 1,
+            background: C.bg2,
+            borderRight: collapsed ? 'none' : `1px solid ${C.border}`,
+            padding: collapsed ? 0 : 14,
+            gap: 16,
+            transition: 'width 0.25s ease, opacity 0.2s ease, padding 0.25s ease',
+          }}
         >
           {/* Search */}
           <div style={{ position: 'relative' }}>

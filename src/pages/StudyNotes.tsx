@@ -85,10 +85,12 @@ export default function StudyNotesPage() {
       source_url: cleanSourceUrl,
       source_title: cleanSourceTitle,
       category,
+      date: today,
     });
 
     if (error) {
-      toast.error('Failed to save note');
+      console.error('Save note error:', error);
+      toast.error('Failed to save note: ' + error.message);
       return;
     }
 

@@ -52,6 +52,10 @@ export default function NoteViewerPage() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluation, setEvaluation] = useState('');
 
+  // AI Explain
+  const [aiExplain, setAiExplain] = useState('');
+  const [aiExplainLoading, setAiExplainLoading] = useState(false);
+
   useEffect(() => {
     if (!user || !id) return;
     (async () => {
@@ -131,6 +135,32 @@ export default function NoteViewerPage() {
     } finally {
       setIsEvaluating(false);
     }
+  };
+
+  const generateAiExplain = async () => {
+    if (aiExplainLoading) return;
+    setAiExplainLoading(true);
+    setAiExplain('');
+    const noteContent = sourceData?.content || revisionItem?.source_note || revisionItem?.text || '';
+    const topic = sourceData?.title || revisionItem?.text || '';
+    const systemPrompt = `You are a senior AI/ML and SDE interview coach. The student has written a study note. Your job:
+1. Explain the concept clearly — intuition first, then technical depth
+2. Give one concrete real-world example or analogy
+3. Identify what is CORRECT in their note (what they understood well)
+4. Point out what is MISSING or could be improved
+5. Provide one practice question on this topic
+Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
+    await streamChat({
+      messages: [
+        { role: 'user', content: `${systemPrompt}\n\nTopic: ${topic}\n\nMy notes:\n${noteContent}` },
+      ],
+      onDelta: (text) => setAiExplain((prev) => prev + text),
+      onDone: () => setAiExplainLoading(false),
+      onError: (err) => {
+        toast.error(err.message || 'AI explanation failed');
+        setAiExplainLoading(false);
+      },
+    });
   };
 
   const startResize = (e: React.MouseEvent) => {
@@ -243,6 +273,41 @@ export default function NoteViewerPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* AI Explain */}
+      <Card
+        className="border-border relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(124,111,247,0.06), rgba(99,102,241,0.04))',
+          borderColor: 'rgba(124,111,247,0.25)',
+        }}
+      >
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-heading flex items-center gap-2">
+            🤖 AI Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!aiExplain && !aiExplainLoading && (
+            <Button size="sm" variant="outline" onClick={generateAiExplain}>
+              <Brain className="h-4 w-4 mr-2" /> Explain this concept
+            </Button>
+          )}
+          {aiExplainLoading && !aiExplain && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing your note…
+            </div>
+          )}
+          {aiExplain && (
+            <>
+              <Markdown content={aiExplain} />
+              <Button size="sm" variant="ghost" onClick={generateAiExplain} disabled={aiExplainLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${aiExplainLoading ? 'animate-spin' : ''}`} /> Regenerate
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Test yourself panel */}
       <Card className="border-border">

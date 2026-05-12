@@ -180,7 +180,7 @@ export default function QuestionBank() {
       if (e.key === 'Escape') { setSelectedId(null); return; }
       if (!selected) return;
       const idx = filtered.findIndex((q) => q.id === selected.id);
-      if (e.key === 'n' || e.key === 'N') { const nx = filtered[idx + 1]; if (nx) setSelectedId(nx.id); }
+      if (e.key === 'n' || e.key === 'N') { const nx = filtered[idx + 1]; if (nx) setSelectedId(nx.id); else toast("You've reached the last question! 🎉"); }
       else if (e.key === 'p' || e.key === 'P') { const pv = filtered[idx - 1]; if (pv) setSelectedId(pv.id); }
       else if (e.key === 's' || e.key === 'S') toggleSolved(selected.id);
       else if (e.key === 'b' || e.key === 'B') toggleStar(selected.id);

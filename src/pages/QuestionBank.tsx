@@ -602,19 +602,26 @@ function Pill({ text, color, bg }: { text: string; color: string; bg: string }) 
 function Detail({
   q, progress, tab, setTab, notesDraft, setNotesDraft, savingNotes,
   onToggleSolved, onToggleStar, onClose, runStatus, runCode,
+  filtered, onPrev, onNext, aiCache, setAiCache, aiLoading, setAiLoading,
 }: {
   q: Question; progress?: Progress;
-  tab: 'desc' | 'sol'; setTab: (t: 'desc' | 'sol') => void;
+  tab: 'desc' | 'sol' | 'elite'; setTab: (t: 'desc' | 'sol' | 'elite') => void;
   notesDraft: string; setNotesDraft: (s: string) => void;
   savingNotes: boolean;
   onToggleSolved: () => void; onToggleStar: () => void; onClose: () => void;
   runStatus: 'idle' | 'running' | 'ok'; runCode: () => void;
+  filtered: Question[]; onPrev: () => void; onNext: () => void;
+  aiCache: Map<number, string>; setAiCache: (m: Map<number, string>) => void;
+  aiLoading: boolean; setAiLoading: (b: boolean) => void;
 }) {
+  const idx = filtered.findIndex(x => x.id === q.id);
+  const isFirst = idx <= 0;
+  const isLast = idx === filtered.length - 1;
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Detail header */}
       <div
-        className="flex items-center gap-3 shrink-0"
+        className="flex items-center gap-3 shrink-0 flex-wrap"
         style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}
       >
         <button
@@ -653,9 +660,43 @@ function Detail({
         </button>
       </div>
 
+      {/* Prev/Next nav bar */}
+      <div
+        className="flex items-center justify-between shrink-0"
+        style={{ padding: '6px 16px', borderBottom: `1px solid ${C.border}`, background: C.bg, fontSize: 12 }}
+      >
+        <button
+          onClick={onPrev}
+          disabled={isFirst}
+          style={{
+            background: C.bg3, border: `1px solid ${C.border}`,
+            color: isFirst ? C.text3 : C.text, borderRadius: 6,
+            padding: '4px 10px', fontSize: 12, cursor: isFirst ? 'not-allowed' : 'pointer',
+            opacity: isFirst ? 0.5 : 1,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          <ChevronLeft className="h-3.5 w-3.5" /> Previous
+        </button>
+        <span className="qb-mono" style={{ color: C.text2 }}>
+          Question <span style={{ color: C.accent }}>{idx + 1}</span> of {filtered.length}
+        </span>
+        <button
+          onClick={onNext}
+          style={{
+            background: C.bg3, border: `1px solid ${C.border}`,
+            color: C.text, borderRadius: 6,
+            padding: '4px 10px', fontSize: 12, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          Next <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       {/* Sub-tabs */}
       <div className="flex shrink-0" style={{ borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
-        {(['desc', 'sol'] as const).map((t) => (
+        {(['desc', 'sol', 'elite'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -665,9 +706,10 @@ function Detail({
               color: tab === t ? C.accent : C.text2,
               borderBottom: tab === t ? `2px solid ${C.accent}` : '2px solid transparent',
               marginBottom: -1,
+              display: 'flex', alignItems: 'center', gap: 5,
             }}
           >
-            {t === 'desc' ? 'Description' : 'Solution + Dry Run'}
+            {t === 'desc' ? 'Description' : t === 'sol' ? 'Solution + Dry Run' : <><Sparkles className="h-3.5 w-3.5" /> Elite Mentor</>}
           </button>
         ))}
       </div>
@@ -676,8 +718,10 @@ function Detail({
       <div className="flex-1 overflow-hidden">
         {tab === 'desc' ? (
           <DescriptionView q={q} notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
-        ) : (
+        ) : tab === 'sol' ? (
           <SolutionView q={q} runStatus={runStatus} runCode={runCode} notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
+        ) : (
+          <EliteView q={q} aiCache={aiCache} setAiCache={setAiCache} aiLoading={aiLoading} setAiLoading={setAiLoading} />
         )}
       </div>
     </div>

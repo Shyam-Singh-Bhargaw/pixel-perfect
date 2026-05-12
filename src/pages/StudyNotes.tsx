@@ -113,7 +113,7 @@ export default function StudyNotesPage() {
     fetchNotes();
   };
 
-  const todayNotes = notes.filter(note => note.date === today);
+  const todayNotes = notes.filter(note => (note.date || note.created_at?.slice(0, 10)) === today);
 
   if (loading) {
     return (

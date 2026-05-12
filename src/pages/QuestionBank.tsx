@@ -981,3 +981,208 @@ function NotesPanel({ notesDraft, setNotesDraft, savingNotes }: { notesDraft: st
     </div>
   );
 }
+
+function EliteView({ q, aiCache, setAiCache, aiLoading, setAiLoading }: {
+  q: Question;
+  aiCache: Map<number, string>;
+  setAiCache: (m: Map<number, string>) => void;
+  aiLoading: boolean;
+  setAiLoading: (b: boolean) => void;
+}) {
+  const cached = aiCache.get(q.id);
+  const [content, setContent] = useState<string>(cached || '');
+  const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<'python' | 'java'>('python');
+
+  useEffect(() => {
+    setContent(aiCache.get(q.id) || '');
+    setError(null);
+  }, [q.id, aiCache]);
+
+  async function generate() {
+    setError(null);
+    setContent('');
+    setAiLoading(true);
+    let acc = '';
+    const prompt = `You are an elite coding mentor. Generate a complete solution for this coding problem.
+
+Title: ${q.title}
+Topic: ${q.topic}
+Difficulty: ${q.difficulty}
+Problem: ${q.problem}
+Example: ${q.example}
+Preferred language: ${language === 'python' ? 'Python' : 'Java'}
+
+Provide your answer as clean markdown with these sections (use H2 headings):
+## 📋 Problem Analysis
+- Restate problem in 2-3 simple sentences
+- Input/Output format
+- Constraints
+- 3 test cases (Simple | Complex | Edge) as code blocks
+
+## 💡 Approach 1 — Brute Force
+**Intuition:** ...
+**Pseudocode:** numbered steps
+**Code (Interview Mode — no built-ins):**
+\`\`\`${language}
+// pure logic only
+\`\`\`
+**Code (Production Mode — with built-ins):**
+\`\`\`${language}
+\`\`\`
+**Dry Run:** table of Step | Code Line | Variable State | What Happened
+**Time:** O(?) **Space:** O(?) — explain why
+
+## 🚀 Approach 2 — Optimal
+(Same structure)
+
+## 📊 Comparison Table
+| Approach | Time | Space | Difficulty | Interview Score | When to Use |
+
+## 🏆 Recommendation
+- **Best for Interviews:** ...
+- **Best for Online Tests:** ...
+- **What to say in interview:** ...
+
+## ⚠️ Common Mistakes
+- bullet list
+
+Be concise but complete. Use proper markdown code fences with the language tag.`;
+
+    await streamChat({
+      messages: [{ role: 'user', content: prompt }],
+      onDelta: (d) => {
+        acc += d;
+        setContent(acc);
+      },
+      onDone: () => {
+        setAiLoading(false);
+        const next = new Map(aiCache);
+        next.set(q.id, acc);
+        setAiCache(next);
+        try {
+          const key = `qbank_ai_${q.id}_${language}`;
+          localStorage.setItem(key, acc);
+        } catch {}
+      },
+      onError: (e) => {
+        setAiLoading(false);
+        setError(e.message);
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (!cached && !aiLoading) {
+      try {
+        const key = `qbank_ai_${q.id}_${language}`;
+        const local = localStorage.getItem(key);
+        if (local) {
+          setContent(local);
+          const next = new Map(aiCache);
+          next.set(q.id, local);
+          setAiCache(next);
+          return;
+        }
+      } catch {}
+      generate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.id]);
+
+  return (
+    <div className="h-full overflow-auto" style={{ padding: 24, background: C.bg }}>
+      <div
+        className="flex items-center gap-3 flex-wrap"
+        style={{
+          padding: 14, marginBottom: 18,
+          background: 'linear-gradient(135deg, rgba(240,165,0,0.08), rgba(88,166,255,0.04))',
+          border: '1px solid rgba(240,165,0,0.3)',
+          borderRadius: 10,
+        }}
+      >
+        <Sparkles className="h-5 w-5" style={{ color: C.accent }} />
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ color: C.accent, fontWeight: 700, fontSize: 14 }}>Elite Mentor Solution</div>
+          <div style={{ color: C.text2, fontSize: 11.5, marginTop: 2 }}>
+            AI-generated multi-approach breakdown · cached locally
+          </div>
+        </div>
+        <div className="flex items-center gap-1" style={{ background: C.bg3, borderRadius: 6, padding: 2 }}>
+          {(['python', 'java'] as const).map(l => (
+            <button
+              key={l}
+              onClick={() => { setLanguage(l); }}
+              style={{
+                background: language === l ? C.accent : 'transparent',
+                color: language === l ? C.bg : C.text2,
+                border: 'none', padding: '4px 12px', fontSize: 11, fontWeight: 600,
+                borderRadius: 4, cursor: 'pointer', textTransform: 'uppercase',
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={generate}
+          disabled={aiLoading}
+          style={{
+            background: C.bg3, border: `1px solid ${C.border}`, color: C.text,
+            padding: '5px 12px', fontSize: 12, borderRadius: 6, cursor: aiLoading ? 'wait' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+          }}
+        >
+          {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {aiLoading ? 'Generating…' : 'Regenerate'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: 12, marginBottom: 12, borderRadius: 6,
+          background: 'rgba(248,81,73,0.1)', border: `1px solid ${C.hard}`, color: C.hard, fontSize: 13,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {!content && aiLoading && (
+        <div style={{ color: C.text2, fontSize: 13, padding: 20, textAlign: 'center' }}>
+          <Loader2 className="h-5 w-5 animate-spin inline-block" style={{ marginRight: 8 }} />
+          📚 Loading solution from Elite Mentor AI…
+        </div>
+      )}
+
+      {content && (
+        <div
+          className="qb-md prose prose-invert max-w-none"
+          style={{ color: C.text, fontSize: 14, lineHeight: 1.7 }}
+        >
+          <style>{`
+            .qb-md h1, .qb-md h2, .qb-md h3 { color: ${C.accent}; font-family: 'Space Grotesk', sans-serif; margin-top: 1.4em; margin-bottom: 0.6em; }
+            .qb-md h2 { font-size: 18px; border-bottom: 1px solid ${C.border}; padding-bottom: 6px; }
+            .qb-md h3 { font-size: 15px; color: ${C.blue}; }
+            .qb-md p { margin: 0.6em 0; color: ${C.text}; }
+            .qb-md ul, .qb-md ol { padding-left: 22px; margin: 0.5em 0; }
+            .qb-md li { margin: 0.3em 0; }
+            .qb-md strong { color: ${C.accent}; font-weight: 600; }
+            .qb-md code { background: ${C.bg2}; padding: 1px 6px; border-radius: 3px; font-family: ${C.mono}; font-size: 12.5px; color: #a5d6ff; }
+            .qb-md pre { background: ${C.bg2}; border: 1px solid ${C.border}; border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
+            .qb-md pre code { background: transparent; padding: 0; color: ${C.text}; font-size: 12.5px; line-height: 1.6; }
+            .qb-md table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 12.5px; }
+            .qb-md th, .qb-md td { border: 1px solid ${C.border}; padding: 6px 10px; text-align: left; }
+            .qb-md th { background: ${C.bg2}; color: ${C.accent}; }
+            .qb-md blockquote { border-left: 3px solid ${C.accent}; padding-left: 12px; color: ${C.text2}; margin: 1em 0; }
+          `}</style>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex, rehypeHighlight]}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}

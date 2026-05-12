@@ -274,6 +274,41 @@ Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
         </Card>
       )}
 
+      {/* AI Explain */}
+      <Card
+        className="border-border relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(124,111,247,0.06), rgba(99,102,241,0.04))',
+          borderColor: 'rgba(124,111,247,0.25)',
+        }}
+      >
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-heading flex items-center gap-2">
+            🤖 AI Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!aiExplain && !aiExplainLoading && (
+            <Button size="sm" variant="outline" onClick={generateAiExplain}>
+              <Brain className="h-4 w-4 mr-2" /> Explain this concept
+            </Button>
+          )}
+          {aiExplainLoading && !aiExplain && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing your note…
+            </div>
+          )}
+          {aiExplain && (
+            <>
+              <Markdown content={aiExplain} />
+              <Button size="sm" variant="ghost" onClick={generateAiExplain} disabled={aiExplainLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${aiExplainLoading ? 'animate-spin' : ''}`} /> Regenerate
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Test yourself panel */}
       <Card className="border-border">
         <CardHeader className="py-3">

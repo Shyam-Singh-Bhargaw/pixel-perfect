@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Star, CheckCircle2, Search, ArrowLeft, Code2, Copy, Play, ChevronDown, ChevronRight } from 'lucide-react';
+import { Star, CheckCircle2, Search, ArrowLeft, Code2, Copy, Play, ChevronDown, ChevronRight, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 import { getInfosysQuestions, TOPICS, type Question } from '@/lib/questionBank';
 import { toast } from 'sonner';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeHighlight from 'rehype-highlight';
+import { streamChat } from '@/lib/ai';
 hljs.registerLanguage('python', python);
+hljs.registerLanguage('java', java);
 
 // CodeMaster palette
 const C = {

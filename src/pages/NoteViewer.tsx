@@ -52,6 +52,10 @@ export default function NoteViewerPage() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluation, setEvaluation] = useState('');
 
+  // AI Explain
+  const [aiExplain, setAiExplain] = useState('');
+  const [aiExplainLoading, setAiExplainLoading] = useState(false);
+
   useEffect(() => {
     if (!user || !id) return;
     (async () => {

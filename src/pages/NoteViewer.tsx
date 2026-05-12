@@ -152,8 +152,7 @@ export default function NoteViewerPage() {
 Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
     await streamChat({
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Topic: ${topic}\n\nMy notes:\n${noteContent}` },
+        { role: 'user', content: `${systemPrompt}\n\nTopic: ${topic}\n\nMy notes:\n${noteContent}` },
       ],
       onDelta: (text) => setAiExplain((prev) => prev + text),
       onDone: () => setAiExplainLoading(false),

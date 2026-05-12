@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Star, CheckCircle2, Search, ArrowLeft, Code2, Copy, Play, ChevronDown, ChevronRight } from 'lucide-react';
+import { Star, CheckCircle2, Search, ArrowLeft, Code2, Copy, Play, ChevronDown, ChevronRight, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 import { getInfosysQuestions, TOPICS, type Question } from '@/lib/questionBank';
 import { toast } from 'sonner';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeHighlight from 'rehype-highlight';
+import { streamChat } from '@/lib/ai';
 hljs.registerLanguage('python', python);
+hljs.registerLanguage('java', java);
 
 // CodeMaster palette
 const C = {
@@ -55,12 +63,21 @@ export default function QuestionBank() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
-  const [detailTab, setDetailTab] = useState<'desc' | 'sol'>('desc');
+  const [detailTab, setDetailTab] = useState<'desc' | 'sol' | 'elite'>('desc');
   const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'ok'>('idle');
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem('qbank_sidebar_collapsed') === '1'; } catch { return false; }
+  });
+  const [aiCache, setAiCache] = useState<Map<number, string>>(new Map());
+  const [aiLoading, setAiLoading] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportH, setViewportH] = useState(600);
+
+  useEffect(() => {
+    try { localStorage.setItem('qbank_sidebar_collapsed', collapsed ? '1' : '0'); } catch {}
+  }, [collapsed]);
 
   // Load progress
   useEffect(() => {
@@ -163,7 +180,7 @@ export default function QuestionBank() {
       if (e.key === 'Escape') { setSelectedId(null); return; }
       if (!selected) return;
       const idx = filtered.findIndex((q) => q.id === selected.id);
-      if (e.key === 'n' || e.key === 'N') { const nx = filtered[idx + 1]; if (nx) setSelectedId(nx.id); }
+      if (e.key === 'n' || e.key === 'N') { const nx = filtered[idx + 1]; if (nx) setSelectedId(nx.id); else toast("You've reached the last question! 🎉"); }
       else if (e.key === 'p' || e.key === 'P') { const pv = filtered[idx - 1]; if (pv) setSelectedId(pv.id); }
       else if (e.key === 's' || e.key === 'S') toggleSolved(selected.id);
       else if (e.key === 'b' || e.key === 'B') toggleStar(selected.id);
@@ -278,11 +295,37 @@ export default function QuestionBank() {
       </div>
 
       {/* 3-panel body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
+        {/* Sidebar collapse toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: collapsed ? 0 : 280 - 14,
+            width: 28, height: 28, borderRadius: '50%',
+            background: C.bg3, border: `1px solid ${C.border}`,
+            color: C.text2, cursor: 'pointer', zIndex: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'left 0.25s ease',
+          }}
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+
         {/* LEFT SIDEBAR */}
         <aside
           className="shrink-0 flex flex-col overflow-y-auto"
-          style={{ width: 280, background: C.bg2, borderRight: `1px solid ${C.border}`, padding: 14, gap: 16 }}
+          style={{
+            width: collapsed ? 0 : 280,
+            opacity: collapsed ? 0 : 1,
+            background: C.bg2,
+            borderRight: collapsed ? 'none' : `1px solid ${C.border}`,
+            padding: collapsed ? 0 : 14,
+            gap: 16,
+            transition: 'width 0.25s ease, opacity 0.2s ease, padding 0.25s ease',
+          }}
         >
           {/* Search */}
           <div style={{ position: 'relative' }}>
@@ -452,6 +495,20 @@ export default function QuestionBank() {
               onClose={() => setSelectedId(null)}
               runStatus={runStatus}
               runCode={runCode}
+              filtered={filtered}
+              onPrev={() => {
+                const i = filtered.findIndex(x => x.id === selected.id);
+                if (i > 0) setSelectedId(filtered[i - 1].id);
+              }}
+              onNext={() => {
+                const i = filtered.findIndex(x => x.id === selected.id);
+                if (i >= 0 && i < filtered.length - 1) setSelectedId(filtered[i + 1].id);
+                else toast("You've reached the last question! 🎉");
+              }}
+              aiCache={aiCache}
+              setAiCache={setAiCache}
+              aiLoading={aiLoading}
+              setAiLoading={setAiLoading}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center" style={{ color: C.text2 }}>
@@ -545,19 +602,26 @@ function Pill({ text, color, bg }: { text: string; color: string; bg: string }) 
 function Detail({
   q, progress, tab, setTab, notesDraft, setNotesDraft, savingNotes,
   onToggleSolved, onToggleStar, onClose, runStatus, runCode,
+  filtered, onPrev, onNext, aiCache, setAiCache, aiLoading, setAiLoading,
 }: {
   q: Question; progress?: Progress;
-  tab: 'desc' | 'sol'; setTab: (t: 'desc' | 'sol') => void;
+  tab: 'desc' | 'sol' | 'elite'; setTab: (t: 'desc' | 'sol' | 'elite') => void;
   notesDraft: string; setNotesDraft: (s: string) => void;
   savingNotes: boolean;
   onToggleSolved: () => void; onToggleStar: () => void; onClose: () => void;
   runStatus: 'idle' | 'running' | 'ok'; runCode: () => void;
+  filtered: Question[]; onPrev: () => void; onNext: () => void;
+  aiCache: Map<number, string>; setAiCache: (m: Map<number, string>) => void;
+  aiLoading: boolean; setAiLoading: (b: boolean) => void;
 }) {
+  const idx = filtered.findIndex(x => x.id === q.id);
+  const isFirst = idx <= 0;
+  const isLast = idx === filtered.length - 1;
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Detail header */}
       <div
-        className="flex items-center gap-3 shrink-0"
+        className="flex items-center gap-3 shrink-0 flex-wrap"
         style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.bg2 }}
       >
         <button
@@ -596,9 +660,43 @@ function Detail({
         </button>
       </div>
 
+      {/* Prev/Next nav bar */}
+      <div
+        className="flex items-center justify-between shrink-0"
+        style={{ padding: '6px 16px', borderBottom: `1px solid ${C.border}`, background: C.bg, fontSize: 12 }}
+      >
+        <button
+          onClick={onPrev}
+          disabled={isFirst}
+          style={{
+            background: C.bg3, border: `1px solid ${C.border}`,
+            color: isFirst ? C.text3 : C.text, borderRadius: 6,
+            padding: '4px 10px', fontSize: 12, cursor: isFirst ? 'not-allowed' : 'pointer',
+            opacity: isFirst ? 0.5 : 1,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          <ChevronLeft className="h-3.5 w-3.5" /> Previous
+        </button>
+        <span className="qb-mono" style={{ color: C.text2 }}>
+          Question <span style={{ color: C.accent }}>{idx + 1}</span> of {filtered.length}
+        </span>
+        <button
+          onClick={onNext}
+          style={{
+            background: C.bg3, border: `1px solid ${C.border}`,
+            color: C.text, borderRadius: 6,
+            padding: '4px 10px', fontSize: 12, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          Next <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       {/* Sub-tabs */}
       <div className="flex shrink-0" style={{ borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
-        {(['desc', 'sol'] as const).map((t) => (
+        {(['desc', 'sol', 'elite'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -608,9 +706,10 @@ function Detail({
               color: tab === t ? C.accent : C.text2,
               borderBottom: tab === t ? `2px solid ${C.accent}` : '2px solid transparent',
               marginBottom: -1,
+              display: 'flex', alignItems: 'center', gap: 5,
             }}
           >
-            {t === 'desc' ? 'Description' : 'Solution + Dry Run'}
+            {t === 'desc' ? 'Description' : t === 'sol' ? 'Solution + Dry Run' : <><Sparkles className="h-3.5 w-3.5" /> Elite Mentor</>}
           </button>
         ))}
       </div>
@@ -619,8 +718,10 @@ function Detail({
       <div className="flex-1 overflow-hidden">
         {tab === 'desc' ? (
           <DescriptionView q={q} notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
-        ) : (
+        ) : tab === 'sol' ? (
           <SolutionView q={q} runStatus={runStatus} runCode={runCode} notesDraft={notesDraft} setNotesDraft={setNotesDraft} savingNotes={savingNotes} />
+        ) : (
+          <EliteView q={q} aiCache={aiCache} setAiCache={setAiCache} aiLoading={aiLoading} setAiLoading={setAiLoading} />
         )}
       </div>
     </div>
@@ -877,6 +978,211 @@ function NotesPanel({ notesDraft, setNotesDraft, savingNotes }: { notesDraft: st
         onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
         onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
       />
+    </div>
+  );
+}
+
+function EliteView({ q, aiCache, setAiCache, aiLoading, setAiLoading }: {
+  q: Question;
+  aiCache: Map<number, string>;
+  setAiCache: (m: Map<number, string>) => void;
+  aiLoading: boolean;
+  setAiLoading: (b: boolean) => void;
+}) {
+  const cached = aiCache.get(q.id);
+  const [content, setContent] = useState<string>(cached || '');
+  const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<'python' | 'java'>('python');
+
+  useEffect(() => {
+    setContent(aiCache.get(q.id) || '');
+    setError(null);
+  }, [q.id, aiCache]);
+
+  async function generate() {
+    setError(null);
+    setContent('');
+    setAiLoading(true);
+    let acc = '';
+    const prompt = `You are an elite coding mentor. Generate a complete solution for this coding problem.
+
+Title: ${q.title}
+Topic: ${q.topic}
+Difficulty: ${q.difficulty}
+Problem: ${q.problem}
+Example: ${q.example}
+Preferred language: ${language === 'python' ? 'Python' : 'Java'}
+
+Provide your answer as clean markdown with these sections (use H2 headings):
+## 📋 Problem Analysis
+- Restate problem in 2-3 simple sentences
+- Input/Output format
+- Constraints
+- 3 test cases (Simple | Complex | Edge) as code blocks
+
+## 💡 Approach 1 — Brute Force
+**Intuition:** ...
+**Pseudocode:** numbered steps
+**Code (Interview Mode — no built-ins):**
+\`\`\`${language}
+// pure logic only
+\`\`\`
+**Code (Production Mode — with built-ins):**
+\`\`\`${language}
+\`\`\`
+**Dry Run:** table of Step | Code Line | Variable State | What Happened
+**Time:** O(?) **Space:** O(?) — explain why
+
+## 🚀 Approach 2 — Optimal
+(Same structure)
+
+## 📊 Comparison Table
+| Approach | Time | Space | Difficulty | Interview Score | When to Use |
+
+## 🏆 Recommendation
+- **Best for Interviews:** ...
+- **Best for Online Tests:** ...
+- **What to say in interview:** ...
+
+## ⚠️ Common Mistakes
+- bullet list
+
+Be concise but complete. Use proper markdown code fences with the language tag.`;
+
+    await streamChat({
+      messages: [{ role: 'user', content: prompt }],
+      onDelta: (d) => {
+        acc += d;
+        setContent(acc);
+      },
+      onDone: () => {
+        setAiLoading(false);
+        const next = new Map(aiCache);
+        next.set(q.id, acc);
+        setAiCache(next);
+        try {
+          const key = `qbank_ai_${q.id}_${language}`;
+          localStorage.setItem(key, acc);
+        } catch {}
+      },
+      onError: (e) => {
+        setAiLoading(false);
+        setError(e.message);
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (!cached && !aiLoading) {
+      try {
+        const key = `qbank_ai_${q.id}_${language}`;
+        const local = localStorage.getItem(key);
+        if (local) {
+          setContent(local);
+          const next = new Map(aiCache);
+          next.set(q.id, local);
+          setAiCache(next);
+          return;
+        }
+      } catch {}
+      generate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.id]);
+
+  return (
+    <div className="h-full overflow-auto" style={{ padding: 24, background: C.bg }}>
+      <div
+        className="flex items-center gap-3 flex-wrap"
+        style={{
+          padding: 14, marginBottom: 18,
+          background: 'linear-gradient(135deg, rgba(240,165,0,0.08), rgba(88,166,255,0.04))',
+          border: '1px solid rgba(240,165,0,0.3)',
+          borderRadius: 10,
+        }}
+      >
+        <Sparkles className="h-5 w-5" style={{ color: C.accent }} />
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ color: C.accent, fontWeight: 700, fontSize: 14 }}>Elite Mentor Solution</div>
+          <div style={{ color: C.text2, fontSize: 11.5, marginTop: 2 }}>
+            AI-generated multi-approach breakdown · cached locally
+          </div>
+        </div>
+        <div className="flex items-center gap-1" style={{ background: C.bg3, borderRadius: 6, padding: 2 }}>
+          {(['python', 'java'] as const).map(l => (
+            <button
+              key={l}
+              onClick={() => { setLanguage(l); }}
+              style={{
+                background: language === l ? C.accent : 'transparent',
+                color: language === l ? C.bg : C.text2,
+                border: 'none', padding: '4px 12px', fontSize: 11, fontWeight: 600,
+                borderRadius: 4, cursor: 'pointer', textTransform: 'uppercase',
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={generate}
+          disabled={aiLoading}
+          style={{
+            background: C.bg3, border: `1px solid ${C.border}`, color: C.text,
+            padding: '5px 12px', fontSize: 12, borderRadius: 6, cursor: aiLoading ? 'wait' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+          }}
+        >
+          {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {aiLoading ? 'Generating…' : 'Regenerate'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: 12, marginBottom: 12, borderRadius: 6,
+          background: 'rgba(248,81,73,0.1)', border: `1px solid ${C.hard}`, color: C.hard, fontSize: 13,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {!content && aiLoading && (
+        <div style={{ color: C.text2, fontSize: 13, padding: 20, textAlign: 'center' }}>
+          <Loader2 className="h-5 w-5 animate-spin inline-block" style={{ marginRight: 8 }} />
+          📚 Loading solution from Elite Mentor AI…
+        </div>
+      )}
+
+      {content && (
+        <div
+          className="qb-md prose prose-invert max-w-none"
+          style={{ color: C.text, fontSize: 14, lineHeight: 1.7 }}
+        >
+          <style>{`
+            .qb-md h1, .qb-md h2, .qb-md h3 { color: ${C.accent}; font-family: 'Space Grotesk', sans-serif; margin-top: 1.4em; margin-bottom: 0.6em; }
+            .qb-md h2 { font-size: 18px; border-bottom: 1px solid ${C.border}; padding-bottom: 6px; }
+            .qb-md h3 { font-size: 15px; color: ${C.blue}; }
+            .qb-md p { margin: 0.6em 0; color: ${C.text}; }
+            .qb-md ul, .qb-md ol { padding-left: 22px; margin: 0.5em 0; }
+            .qb-md li { margin: 0.3em 0; }
+            .qb-md strong { color: ${C.accent}; font-weight: 600; }
+            .qb-md code { background: ${C.bg2}; padding: 1px 6px; border-radius: 3px; font-family: ${C.mono}; font-size: 12.5px; color: #a5d6ff; }
+            .qb-md pre { background: ${C.bg2}; border: 1px solid ${C.border}; border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
+            .qb-md pre code { background: transparent; padding: 0; color: ${C.text}; font-size: 12.5px; line-height: 1.6; }
+            .qb-md table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 12.5px; }
+            .qb-md th, .qb-md td { border: 1px solid ${C.border}; padding: 6px 10px; text-align: left; }
+            .qb-md th { background: ${C.bg2}; color: ${C.accent}; }
+            .qb-md blockquote { border-left: 3px solid ${C.accent}; padding-left: 12px; color: ${C.text2}; margin: 1em 0; }
+          `}</style>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex, rehypeHighlight]}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+      )}
     </div>
   );
 }

@@ -495,6 +495,20 @@ export default function QuestionBank() {
               onClose={() => setSelectedId(null)}
               runStatus={runStatus}
               runCode={runCode}
+              filtered={filtered}
+              onPrev={() => {
+                const i = filtered.findIndex(x => x.id === selected.id);
+                if (i > 0) setSelectedId(filtered[i - 1].id);
+              }}
+              onNext={() => {
+                const i = filtered.findIndex(x => x.id === selected.id);
+                if (i >= 0 && i < filtered.length - 1) setSelectedId(filtered[i + 1].id);
+                else toast("You've reached the last question! 🎉");
+              }}
+              aiCache={aiCache}
+              setAiCache={setAiCache}
+              aiLoading={aiLoading}
+              setAiLoading={setAiLoading}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center" style={{ color: C.text2 }}>

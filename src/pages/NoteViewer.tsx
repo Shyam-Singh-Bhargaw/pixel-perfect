@@ -137,6 +137,33 @@ export default function NoteViewerPage() {
     }
   };
 
+  const generateAiExplain = async () => {
+    if (aiExplainLoading) return;
+    setAiExplainLoading(true);
+    setAiExplain('');
+    const noteContent = sourceData?.content || revisionItem?.source_note || revisionItem?.text || '';
+    const topic = sourceData?.title || revisionItem?.text || '';
+    const systemPrompt = `You are a senior AI/ML and SDE interview coach. The student has written a study note. Your job:
+1. Explain the concept clearly — intuition first, then technical depth
+2. Give one concrete real-world example or analogy
+3. Identify what is CORRECT in their note (what they understood well)
+4. Point out what is MISSING or could be improved
+5. Provide one practice question on this topic
+Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
+    await streamChat({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Topic: ${topic}\n\nMy notes:\n${noteContent}` },
+      ],
+      onDelta: (text) => setAiExplain((prev) => prev + text),
+      onDone: () => setAiExplainLoading(false),
+      onError: (err) => {
+        toast.error(err.message || 'AI explanation failed');
+        setAiExplainLoading(false);
+      },
+    });
+  };
+
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
     const startY = e.clientY;

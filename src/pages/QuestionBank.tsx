@@ -63,12 +63,21 @@ export default function QuestionBank() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
-  const [detailTab, setDetailTab] = useState<'desc' | 'sol'>('desc');
+  const [detailTab, setDetailTab] = useState<'desc' | 'sol' | 'elite'>('desc');
   const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'ok'>('idle');
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem('qbank_sidebar_collapsed') === '1'; } catch { return false; }
+  });
+  const [aiCache, setAiCache] = useState<Map<number, string>>(new Map());
+  const [aiLoading, setAiLoading] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportH, setViewportH] = useState(600);
+
+  useEffect(() => {
+    try { localStorage.setItem('qbank_sidebar_collapsed', collapsed ? '1' : '0'); } catch {}
+  }, [collapsed]);
 
   // Load progress
   useEffect(() => {

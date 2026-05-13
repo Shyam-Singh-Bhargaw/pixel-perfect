@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { SPACED_REP_INTERVALS } from '@/lib/constants';
 import { streamChat, ChatMessage } from '@/lib/ai';
 import { ExternalAnchor } from '@/components/ExternalAnchor';
+import { Markdown } from '@/components/Markdown';
+import { RefreshCw } from 'lucide-react';
 
 function getReviewDay(revCount: number): string {
   if (revCount === 0) return 'Day 1';

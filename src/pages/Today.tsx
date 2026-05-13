@@ -112,7 +112,30 @@ export default function TodayPage() {
     fetchData();
   };
 
-  const markRevisionDone = async (item: any) => {
+  const deleteTask = async (task: any) => {
+    setTasks(prev => prev.filter(t => t.id !== task.id));
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+    if (error) { console.error(error); toast.error('Failed to delete task'); fetchData(); return; }
+    toast.success('Task deleted');
+  };
+
+  const startEdit = (task: any) => {
+    setEditingTaskId(task.id);
+    setEditText(task.text);
+    setEditPriority(task.priority || 'med');
+  };
+
+  const cancelEdit = () => { setEditingTaskId(null); setEditText(''); };
+
+  const saveEdit = async (task: any) => {
+    if (!editText.trim()) return;
+    const { error } = await supabase.from('tasks').update({ text: editText.trim(), priority: editPriority }).eq('id', task.id);
+    if (error) { console.error(error); toast.error('Failed to update task'); return; }
+    toast.success('Task updated');
+    setEditingTaskId(null);
+    fetchData();
+  };
+
     const newCount = (item.rev_count || 0) + 1;
     const intervalIdx = Math.min(newCount, SPACED_REP_INTERVALS.length - 1);
     const nextDate = new Date(Date.now() + SPACED_REP_INTERVALS[intervalIdx] * 86400000).toISOString().split('T')[0];

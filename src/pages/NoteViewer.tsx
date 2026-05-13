@@ -60,18 +60,50 @@ export default function NoteViewerPage() {
     if (!user || !id) return;
     (async () => {
       setLoading(true);
-      const { data: revItem } = await supabase.from('revision_items').select('*').eq('id', id).eq('user_id', user.id).single();
-      setRevisionItem(revItem);
-      if (revItem?.source_type === 'note') {
-        const { data } = await supabase.from('study_notes').select('*').eq('user_id', user.id)
-          .or(`title.eq.${revItem.text},source_url.eq.${revItem.source_url || '___none___'}`)
-          .limit(1).maybeSingle();
-        setSourceData(data);
-      } else if (revItem?.source_type === 'coding') {
-        const { data } = await supabase.from('coding_practice').select('*').eq('user_id', user.id)
-          .or(`title.eq.${revItem.text},url.eq.${revItem.source_url || '___none___'}`)
-          .limit(1).maybeSingle();
-        setSourceData(data);
+
+      // Try revision_items first
+      const { data: revItem, error: revErr } = await supabase
+        .from('revision_items').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
+      if (revErr) console.error('revision_items lookup:', revErr);
+
+      if (revItem) {
+        setRevisionItem(revItem);
+        if (revItem.source_type === 'note') {
+          const { data } = await supabase.from('study_notes').select('*').eq('user_id', user.id)
+            .or(`title.eq.${revItem.text},source_url.eq.${revItem.source_url || '___none___'}`)
+            .limit(1).maybeSingle();
+          setSourceData(data);
+        } else if (revItem.source_type === 'coding') {
+          const { data } = await supabase.from('coding_practice').select('*').eq('user_id', user.id)
+            .or(`title.eq.${revItem.text},url.eq.${revItem.source_url || '___none___'}`)
+            .limit(1).maybeSingle();
+          setSourceData(data);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Fallback: maybe id is a study_notes id
+      const { data: note, error: noteErr } = await supabase
+        .from('study_notes').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
+      if (noteErr) console.error('study_notes lookup:', noteErr);
+
+      if (note) {
+        // Synthesize a revisionItem-like wrapper so the rest of the page renders
+        setRevisionItem({
+          id: note.id,
+          text: note.title,
+          topic: note.category,
+          source_type: 'note',
+          source_url: note.source_url,
+          source_note: note.content,
+          rev_count: 0,
+          rev_dates: [],
+          next_rev: new Date().toISOString().split('T')[0],
+          created_at: note.created_at,
+          _isStandaloneNote: true,
+        });
+        setSourceData(note);
       }
       setLoading(false);
     })();
@@ -79,6 +111,7 @@ export default function NoteViewerPage() {
 
   const markReviewed = async () => {
     if (!revisionItem) return;
+    if (revisionItem._isStandaloneNote) { toast.info('Open from Revision Queue to mark reviewed'); return; }
     const today = new Date().toISOString().split('T')[0];
     const newCount = (revisionItem.rev_count || 0) + 1;
     const idx = Math.min(newCount, SPACED_REP_INTERVALS.length - 1);
@@ -189,13 +222,20 @@ Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
   if (!revisionItem) {
     return (
       <div className="max-w-3xl mx-auto py-16 text-center space-y-4">
-        <p className="text-muted-foreground">Item not found.</p>
-        <Button variant="outline" onClick={() => navigate('/revision')}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Revision
-        </Button>
+        <p className="text-3xl">📝</p>
+        <h2 className="text-xl font-heading font-bold">Note not found</h2>
+        <p className="text-muted-foreground text-sm">This note may have been deleted or doesn't exist.</p>
+        <div className="flex gap-2 justify-center">
+          <Button variant="outline" onClick={() => navigate('/notes')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Notes
+          </Button>
+          <Button variant="ghost" onClick={() => navigate('/revision')}>Revision Queue</Button>
+        </div>
       </div>
     );
   }
+
+  const isStandalone = revisionItem._isStandaloneNote;
 
   const title = sourceData?.title || revisionItem.text;
   const content = sourceData?.content || revisionItem.source_note || revisionItem.text;
@@ -217,8 +257,8 @@ Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24">
-      <button onClick={() => navigate('/revision')} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back to Revision Queue
+      <button onClick={() => navigate(isStandalone ? '/notes' : -1 as any)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ArrowLeft className="h-4 w-4" /> {isStandalone ? 'Back to Notes' : 'Back'}
       </button>
 
       <div className="space-y-3">
@@ -376,8 +416,8 @@ Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
 
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto flex items-center justify-between px-4 py-3">
-          <button onClick={() => navigate('/revision')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            ← Back to revision
+          <button onClick={() => navigate(isStandalone ? '/notes' : '/revision')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            ← {isStandalone ? 'Back to notes' : 'Back to revision'}
           </button>
           <Button onClick={markReviewed} size="sm" className="gap-1.5">
             <CheckCircle className="h-4 w-4" /> Mark reviewed

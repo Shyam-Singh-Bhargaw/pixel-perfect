@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { NORMAL_SCHEDULE, INTERVIEW_SCHEDULE, STUDY_TOPICS, STUDY_TARGETS, TOPIC_COLORS, SPACED_REP_INTERVALS, SCHEDULE_SLOT_COLORS } from '@/lib/constants';
 import { ExternalAnchor } from '@/components/ExternalAnchor';
+import { Trash2, Pencil, Check, X } from 'lucide-react';
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());
@@ -53,6 +54,9 @@ export default function TodayPage() {
   const [newPriority, setNewPriority] = useState('med');
   const [studyTopic, setStudyTopic] = useState('ML');
   const [studyHoursInput, setStudyHoursInput] = useState('1');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editPriority, setEditPriority] = useState('med');
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -105,6 +109,30 @@ export default function TodayPage() {
         original_date: today,
       });
     }
+    fetchData();
+  };
+
+  const deleteTask = async (task: any) => {
+    setTasks(prev => prev.filter(t => t.id !== task.id));
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+    if (error) { console.error(error); toast.error('Failed to delete task'); fetchData(); return; }
+    toast.success('Task deleted');
+  };
+
+  const startEdit = (task: any) => {
+    setEditingTaskId(task.id);
+    setEditText(task.text);
+    setEditPriority(task.priority || 'med');
+  };
+
+  const cancelEdit = () => { setEditingTaskId(null); setEditText(''); };
+
+  const saveEdit = async (task: any) => {
+    if (!editText.trim()) return;
+    const { error } = await supabase.from('tasks').update({ text: editText.trim(), priority: editPriority }).eq('id', task.id);
+    if (error) { console.error(error); toast.error('Failed to update task'); return; }
+    toast.success('Task updated');
+    setEditingTaskId(null);
     fetchData();
   };
 
@@ -274,13 +302,35 @@ export default function TodayPage() {
               <Button onClick={addTask} size="sm">Add</Button>
             </div>
             <div className="max-h-64 space-y-1 overflow-auto">
-              {sortedTasks.map(task => (
-                <div key={task.id} className={`flex items-center gap-3 rounded-md px-3 py-2 ${task.done ? 'opacity-50' : ''}`}>
+              {sortedTasks.map(task => editingTaskId === task.id ? (
+                <div key={task.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 bg-secondary/50">
+                  <Input
+                    autoFocus
+                    value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(task); else if (e.key === 'Escape') cancelEdit(); }}
+                    className="flex-1 h-8 bg-secondary border-border"
+                  />
+                  <Select value={editPriority} onValueChange={setEditPriority}>
+                    <SelectTrigger className="w-20 h-8 bg-secondary border-border"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="med">Med</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="default" className="h-7 w-7 p-0 bg-success hover:bg-success/90" onClick={() => saveEdit(task)} aria-label="Save"><Check className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={cancelEdit} aria-label="Cancel"><X className="h-3.5 w-3.5" /></Button>
+                </div>
+              ) : (
+                <div key={task.id} className={`group flex items-center gap-2 rounded-md px-3 py-2 ${task.done ? 'opacity-50' : ''}`}>
                   <Checkbox checked={task.done} onCheckedChange={() => toggleTask(task)} />
                   <span className={`flex-1 text-sm ${task.done ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.text}</span>
                   <Badge variant="outline" className={`text-[10px] ${task.priority === 'high' ? 'border-destructive text-destructive' : task.priority === 'low' ? 'border-muted-foreground text-muted-foreground' : 'border-warning text-warning'}`}>
                     {task.priority}
                   </Badge>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 opacity-60 hover:opacity-100" onClick={() => startEdit(task)} aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 opacity-60 hover:opacity-100" onClick={() => deleteTask(task)} aria-label="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               ))}
               {tasks.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No tasks yet. Add one above!</p>}

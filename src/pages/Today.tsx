@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { NORMAL_SCHEDULE, INTERVIEW_SCHEDULE, STUDY_TOPICS, STUDY_TARGETS, TOPIC_COLORS, SPACED_REP_INTERVALS, SCHEDULE_SLOT_COLORS } from '@/lib/constants';
 import { ExternalAnchor } from '@/components/ExternalAnchor';
+import { Trash2, Pencil, Check, X } from 'lucide-react';
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());

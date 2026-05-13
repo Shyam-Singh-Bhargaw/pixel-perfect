@@ -257,8 +257,8 @@ Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24">
-      <button onClick={() => navigate('/revision')} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back to Revision Queue
+      <button onClick={() => navigate(isStandalone ? '/notes' : -1 as any)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ArrowLeft className="h-4 w-4" /> {isStandalone ? 'Back to Notes' : 'Back'}
       </button>
 
       <div className="space-y-3">

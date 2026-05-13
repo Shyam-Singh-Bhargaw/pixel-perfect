@@ -54,6 +54,9 @@ export default function TodayPage() {
   const [newPriority, setNewPriority] = useState('med');
   const [studyTopic, setStudyTopic] = useState('ML');
   const [studyHoursInput, setStudyHoursInput] = useState('1');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editPriority, setEditPriority] = useState('med');
 
   const today = new Date().toISOString().split('T')[0];
 

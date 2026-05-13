@@ -152,16 +152,27 @@ export default function RevisionPage() {
         <p className="mt-1 text-sm text-muted-foreground">Your smart logbook — tasks, coding problems, and concepts with spaced repetition.</p>
       </div>
 
-      <Card className="border-border">
+      <Card className="border-primary/20 bg-card">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-base font-heading">🧠 AI Revision Coach</CardTitle>
-          <Button onClick={getAiTips} disabled={aiLoading} size="sm">
-            {aiLoading ? 'Thinking...' : "Get today's revision tips"}
-          </Button>
+          <CardTitle className="text-sm font-semibold text-primary">🧠 AI Revision Coach</CardTitle>
+          <div className="flex gap-2">
+            {aiTips && (
+              <Button onClick={getAiTips} disabled={aiLoading} size="sm" variant="ghost">
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${aiLoading ? 'animate-spin' : ''}`} /> Regenerate
+              </Button>
+            )}
+            {!aiTips && (
+              <Button onClick={getAiTips} disabled={aiLoading} size="sm">
+                {aiLoading ? 'Thinking...' : "Get today's revision tips"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         {aiTips && (
           <CardContent>
-            <div className="rounded-lg bg-secondary p-4 text-sm text-foreground whitespace-pre-wrap">{aiTips}</div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-4 max-h-[70vh] overflow-y-auto">
+              <Markdown content={aiTips} />
+            </div>
           </CardContent>
         )}
       </Card>

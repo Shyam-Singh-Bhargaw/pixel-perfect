@@ -136,6 +136,7 @@ export default function TodayPage() {
     fetchData();
   };
 
+  const markRevisionDone = async (item: any) => {
     const newCount = (item.rev_count || 0) + 1;
     const intervalIdx = Math.min(newCount, SPACED_REP_INTERVALS.length - 1);
     const nextDate = new Date(Date.now() + SPACED_REP_INTERVALS[intervalIdx] * 86400000).toISOString().split('T')[0];

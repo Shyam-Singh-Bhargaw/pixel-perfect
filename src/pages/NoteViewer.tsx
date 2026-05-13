@@ -111,6 +111,7 @@ export default function NoteViewerPage() {
 
   const markReviewed = async () => {
     if (!revisionItem) return;
+    if (revisionItem._isStandaloneNote) { toast.info('Open from Revision Queue to mark reviewed'); return; }
     const today = new Date().toISOString().split('T')[0];
     const newCount = (revisionItem.rev_count || 0) + 1;
     const idx = Math.min(newCount, SPACED_REP_INTERVALS.length - 1);

@@ -416,8 +416,8 @@ Format with clear ## markdown headers per section. Use LaTeX ($...$) for math.`;
 
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto flex items-center justify-between px-4 py-3">
-          <button onClick={() => navigate('/revision')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            ← Back to revision
+          <button onClick={() => navigate(isStandalone ? '/notes' : '/revision')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            ← {isStandalone ? 'Back to notes' : 'Back to revision'}
           </button>
           <Button onClick={markReviewed} size="sm" className="gap-1.5">
             <CheckCircle className="h-4 w-4" /> Mark reviewed

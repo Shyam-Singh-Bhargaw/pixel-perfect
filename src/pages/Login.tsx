@@ -23,6 +23,11 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (user) navigate(next, { replace: true });
+  }, [user, next, navigate]);
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

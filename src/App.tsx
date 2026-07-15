@@ -18,6 +18,7 @@ import CodingPracticePage from "@/pages/CodingPractice";
 import QuestionBankPage from "@/pages/QuestionBank";
 import StudyNotesPage from "@/pages/StudyNotes";
 import NoteViewerPage from "@/pages/NoteViewer";
+import OAuthConsent from "@/pages/OAuthConsent";
 import NotFound from "@/pages/NotFound";
 import { useSystemTheme } from "@/hooks/useSystemTheme";
 

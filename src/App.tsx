@@ -18,6 +18,7 @@ import CodingPracticePage from "@/pages/CodingPractice";
 import QuestionBankPage from "@/pages/QuestionBank";
 import StudyNotesPage from "@/pages/StudyNotes";
 import NoteViewerPage from "@/pages/NoteViewer";
+import OAuthConsent from "@/pages/OAuthConsent";
 import NotFound from "@/pages/NotFound";
 import { useSystemTheme } from "@/hooks/useSystemTheme";
 
@@ -36,7 +37,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="/" element={<ProtectedRoute><TodayPage /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarView /></ProtectedRoute>} />
       <Route path="/revision" element={<ProtectedRoute><RevisionPage /></ProtectedRoute>} />

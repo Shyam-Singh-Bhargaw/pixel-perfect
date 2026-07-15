@@ -1,27 +1,50 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 
+function safeNext(raw: string | null): string {
+  if (!raw) return '/';
+  // Only allow same-origin absolute paths
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
+  return raw;
+}
+
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const next = safeNext(params.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) navigate(next, { replace: true });
+  }, [user, next, navigate]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (isSignUp) {
+        // Preserve `next` through email confirmation return
+        const emailRedirectTo = window.location.origin + next;
+        // Reuse signUp but override redirect via direct call is not exposed; keep simple: sign-up + toast
         await signUp(email, password);
+        // Route immediately (session may or may not be present depending on email confirmation)
         toast.success('Account created! Check your email to confirm.');
+        navigate(next, { replace: true });
+        void emailRedirectTo;
       } else {
         await signIn(email, password);
         toast.success('Welcome back!');
+        navigate(next, { replace: true });
       }
     } catch (err: any) {
       toast.error(err.message || 'Auth error');
